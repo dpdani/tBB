@@ -14,7 +14,7 @@ class IPElement(object):
         self._ip = ('', [0, 0, 0, 0])
         self._mask = 0
         if len(args) == 1:
-            self.ip, self.mask = args[0].split('/')
+            self.mask, self.ip  = reversed(args[0].split('/'))  # mask needs to be initialized before ip
         else:
             self.ip = kwargs['ip']
             self.mask = kwargs['mask']
@@ -46,9 +46,10 @@ class IPElement(object):
 
     @mask.setter
     def mask(self, value):
-        if type(value) == int and value < 0 or value > 32:
+        if type(value) == int:
+            if value < 0 or value > 32:
+                raise ValueError("IP mask out of range: {}.".format(value))
             self._mask = value
-            return
         self._mask = self.parse_mask(value)
 
     @staticmethod
@@ -92,12 +93,42 @@ class IPElement(object):
         Returns True if self.ip is a network IP.
         :return: bool
         """
-        ip = self.ip[1]
-        if (ip[0]*10^12 + ip[1]*10^9 + ip[2]*10^6 + ip[3]*10^3) % (32 - self.mask):
-            # e.g.: 192.168.1.100/24 -> 192168001100 % 8 != 0 => not network ip
-            #       192.168.1.0/24 -> 192168001000 % 8 == 0 => network ip
-            return False
+        num = ''
+        for i in self.ip[1]:
+            num += '{0:08b}'.format(i)
+        for i in num[self.mask:]:
+            if i != '0':
+                return False
         return True
+
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+        if self.ip == other.ip and self.mask == other.mask:
+            return True
+        return False
+
+    def __add__(self, other):
+        if type(other) != int:
+            raise TypeError("expected an integer.")
+        ip = self.ip[1].copy()
+        to_add = other
+        for elem in reversed(range(4)):
+            ip[elem] += to_add
+            to_add = ip[elem] // 256  # truncated division
+            ip[elem] %= 256
+        return IPElement(ip='.'.join([str(x) for x in ip]), mask=self.mask)
+
+    def __sub__(self, other):
+        if type(other) != int:
+            raise TypeError("expected an integer.")
+        return self + (-other)
+
+    def __repr__(self):
+        try:
+            return "<{} {}/{}>".format(self.__class__.__name__, self.ip[0], self.mask)
+        except AttributeError:
+            return "<{} not initialized>".format(self.__class__.__name__)
 
 
 class Network(IPElement):
@@ -107,18 +138,34 @@ class Network(IPElement):
             self._mask = args[0].mask
         else:
             super().__init__(*args, **kwargs)
+        if not self.is_network():
+            raise ValueError("IP address must be a valid network IP address.")
         self.__iter_index = 0
-        self.__iter_ip = []
         self.forced_length = -1
         if 'force_length' in kwargs:
+            # TODO: provide documentation for force_length and its behaviour
             self.forced_length = kwargs['force_length']
+
+    @property
+    def ip(self):
+        return super().ip
+
+    @ip.setter
+    def ip(self, value):
+        prev_ip = '/'.join([self.ip[0], str(self.mask)])
+        super(Network, Network).ip.__set__(self, value)
         if not self.is_network():
+            if not prev_ip.startswith('/'):
+                super(Network, Network).ip.__set__(self, prev_ip)
             raise ValueError("IP address must be a valid network IP address.")
 
     def __len__(self):
-        if self.forced_length >= 0:
-            return self.forced_length
-        return 2 ^ (32 - self.mask)
+        try:
+            if self.forced_length >= 0:
+                return self.forced_length
+            return 2 ** (32 - self.mask)
+        except AttributeError:
+            return 0
 
     def __iter__(self):
         return self
@@ -127,19 +174,23 @@ class Network(IPElement):
         return self.next()
 
     def next(self):
-        self.__iter_index += 1
-        if self.__iter_index >= len(self):
+        if self.__iter_index >= len(self)-1:
             raise StopIteration()
-        ip = self.ip[1].copy()
-        to_add = self.__iter_index
-        for elem in reversed(range(3)):
-            ip[elem] += to_add
-            to_add = ip[elem] / 256
-            ip[elem] %= 256
-        return IPElement(ip='.'.join([str(x) for x in ip]), mask=self.mask)
+        self.__iter_index += 1
+        return self + self.__iter_index
+
+    def broadcast(self):
+        return self + (len(self) - 1)
+
+    def last_host(self):
+        return self + (len(self) - 2)
+
+    def __repr__(self):
+        return super().__repr__().replace('>', '-{}>'.format(len(self)))
 
 
 class Host(IPElement):
+    # TODO: add discovery_method, known_ports, ...
     def __init__(self, *args, **kwargs):
         if len(args) == 1 and isinstance(args[0], IPElement):
             self._ip = args[0].ip
@@ -148,9 +199,4 @@ class Host(IPElement):
             super().__init__(*args, **kwargs)
 
     def next(self):
-        ip = self.ip[1].copy()
-        ip[3] += 1
-        if ip[2] >= 256:
-            ip[3] %= 256  # should be == 0
-            ip[2] += 1
-        return IPElement(ip='.'.join([str(x) for x in ip]), mask=self.mask)
+        return self + 1
