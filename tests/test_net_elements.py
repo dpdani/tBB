@@ -80,6 +80,13 @@ class NetworkTestCase(unittest.TestCase):
         self.assertEqual(net.ip[1], [192, 168, 3, 0])
         self.assertEqual(net.mask, 24)
 
+    def test_init_valid_string_force_length(self):
+        net = net_elements.Network("192.168.3.0/24-12")
+        self.assertEqual(net.ip[0], "192.168.3.0")
+        self.assertEqual(net.ip[1], [192, 168, 3, 0])
+        self.assertEqual(net.mask, 24)
+        self.assertEqual(net.forced_length, 12)
+
     def test_init_invalid_ipelement(self):
         with self.assertRaises(ValueError):
             net_elements.Network(

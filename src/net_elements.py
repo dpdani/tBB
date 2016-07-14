@@ -137,14 +137,23 @@ class Network(IPElement):
             self._ip = args[0].ip
             self._mask = args[0].mask
         else:
-            super().__init__(*args, **kwargs)
+            if len(args) == 1:
+                if len(args[0].split('-')) == 2:
+                    ip, fl = args[0].split('-')
+                    self.forced_length = int(fl)
+                    super().__init__(ip)
+                else:
+                    super().__init__(*args, **kwargs)
+            else:
+                super().__init__(*args, **kwargs)
         if not self.is_network():
             raise ValueError("IP address must be a valid network IP address.")
-        self.__iter_index = 0
-        self.forced_length = -1
+        if not hasattr(self, 'forced_length'):
+            self.forced_length = -1
         if 'force_length' in kwargs:
             # TODO: provide documentation for force_length and its behaviour
             self.forced_length = kwargs['force_length']
+        self.__iter_index = 0
 
     @property
     def ip(self):
@@ -166,6 +175,11 @@ class Network(IPElement):
             return 2 ** (32 - self.mask)
         except AttributeError:
             return 0
+
+    def __getitem__(self, item):
+        if item >= len(self):
+            raise ValueError("requested item '{}' out of network range ({}).".format(item, len(self)))
+        return self + item
 
     def __iter__(self):
         return self
