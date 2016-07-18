@@ -4,6 +4,8 @@ Network elements representations for Python.
 
 """
 
+import datetime
+
 
 class IPElement(object):
     """
@@ -147,6 +149,27 @@ class IPElement(object):
             return "<{} not initialized>".format(self.__class__.__name__)
 
 
+class MACElement(object):
+    def __init__(self, mac):
+        if type(mac) != str:
+            raise TypeError("expected argument mac to be of type str. Got: {}.".format(type(mac)))
+        self.mac = mac.lower()
+
+    def __eq__(self, other):
+        if not isinstance(other, MACElement):
+            return False
+        return self.mac == other.mac
+
+    def __hash__(self):
+        return self.mac.__hash__()
+
+    def __repr__(self):
+        try:
+            return "<{} {}>".format(self.__class__.__name__, self.mac)
+        except AttributeError:
+            return "<{} not initialized>".format(self.__class__.__name__)
+
+
 class Network(IPElement):
     """
     IP network object representation for Python.
@@ -242,14 +265,51 @@ class Network(IPElement):
         return super().__repr__().replace('>', '-{}>'.format(len(self)))
 
 
-class Host(IPElement):
-    # TODO: add discovery_method, known_ports, ...
-    def __init__(self, *args, **kwargs):
-        if len(args) == 1 and isinstance(args[0], IPElement):
-            self._ip = args[0].ip
-            self._mask = args[0].mask
-        else:
-            super().__init__(*args, **kwargs)
+class IPHost(object):
+    def __init__(self, ip):
+        if not isinstance(ip, IPElement):
+            raise TypeError("expected an IPElement instance for argument ip. Got: {}".format(ip))
+        self.ip = ip
+        self.history = {}
+        self.discovery_history = {}
+        self.last_check = None
 
-    def next(self):
-        return self + 1
+    @property
+    def mac(self):
+        return self.history[list(self.history.keys())[0]]
+
+    @property
+    def ago(self):
+        return datetime.datetime.now() - self.last_check
+
+    @property
+    def last_discovery_method(self):
+        return self.discovery_history[list(self.discovery_history.keys())[0]]
+
+    def add_to_history(self, stuff):
+        self.history[datetime.datetime.now()] = stuff
+
+    def add_to_discovery_history(self, stuff):
+        self.discovery_history[datetime.datetime.now()] = stuff
+
+
+class MACHost(object):
+    def __init__(self, mac):
+        if not isinstance(mac, MACElement):
+            raise TypeError("expected a MACElement instance for argument mac. Got: {}".format(mac))
+        self.mac = mac
+        self.history = {}
+        self.last_update = None
+
+    @property
+    def ip(self):
+        return self.history[list(self.history.keys())[0]]
+
+    @property
+    def ago(self):
+        return datetime.datetime.now() - self.last_update
+
+    def add_to_history(self, stuff):
+        if not isinstance(stuff, tuple):
+            stuff = (stuff,)
+        self.history[datetime.datetime.now()] = stuff

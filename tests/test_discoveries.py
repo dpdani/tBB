@@ -6,7 +6,7 @@ path = os.path.abspath(os.path.join(os.getcwd(), '..'))
 if path not in sys.path:
     sys.path.append(path)
 
-from src.net_elements import IPElement, Network, Host
+from src.net_elements import IPElement, Network
 from src import discoveries
 
 

@@ -14,7 +14,7 @@ import logging
 import logging.config
 import logging.handlers
 import json
-from net_elements import Network, Host
+from net_elements import Network
 
 
 logger = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ default_logging_config = {
             'level': 'WARNING',
             'class': 'logging.handlers.SysLogHandler',
             'formatter': 'complete',
-            'address': ("192.168.46.23", 1984),  #
+            'address': ("192.168.46.23", 1984),
             'socktype': socket.SOCK_DGRAM,
             'facility': logging.handlers.SysLogHandler.LOG_DAEMON,
         },
