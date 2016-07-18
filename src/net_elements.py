@@ -1,20 +1,29 @@
 """
 
-Network elements definitions.
+Network elements representations for Python.
 
 """
 
 
 class IPElement(object):
+    """
+    IP object representation for Python.
+    This object responds to the following interfaces:
+      - addition (and subtraction)
+      - equality (and inequality)
+      - hashable
+    """
+
     def __init__(self, *args, **kwargs):
         """
-        IPElement('192.168.0.100/25')
-        IPElement(ip='192.168.0.100', mask=25)
+        Possible initializations:
+            IPElement('192.168.0.100/25')
+            IPElement(ip='192.168.0.100', mask=25)
         """
         self._ip = ('', [0, 0, 0, 0])
         self._mask = 0
         if len(args) == 1:
-            self.mask, self.ip  = reversed(args[0].split('/'))  # mask needs to be initialized before ip
+            self.mask, self.ip = reversed(args[0].split('/'))  # mask needs to be initialized before ip
         else:
             self.ip = kwargs['ip']
             self.mask = kwargs['mask']
@@ -83,6 +92,10 @@ class IPElement(object):
 
     @staticmethod
     def parse_mask(string):
+        """
+        Parses a string and checks if it is a valid mask.
+        :return: int
+        """
         mask = int(string)
         if mask < 0 or mask > 32:
             raise ValueError("IP mask out of range: {}.".format(mask))
@@ -108,6 +121,9 @@ class IPElement(object):
             return True
         return False
 
+    def __hash__(self):
+        return self.ip[0].__hash__()
+
     def __add__(self, other):
         if type(other) != int:
             raise TypeError("expected an integer.")
@@ -132,7 +148,24 @@ class IPElement(object):
 
 
 class Network(IPElement):
+    """
+    IP network object representation for Python.
+    This object responds to the following interfaces (inherited from IPElement):
+      - addition (and subtraction)
+      - equality (and inequality)
+      - hashable
+    In addition, also responds to the following:
+      - iterable
+      - sliceable
+    """
     def __init__(self, *args, **kwargs):
+        """
+        Possible initializations:
+            Network('192.168.0.0/25')
+            Network(ip='192.168.0.0', mask=25)
+            Network('192.168.0.0/25-10')
+            Network(ip='192.168.0.0', mask=25, force_length=10)
+        """
         if len(args) == 1 and isinstance(args[0], IPElement):
             self._ip = args[0].ip
             self._mask = args[0].mask
@@ -188,8 +221,14 @@ class Network(IPElement):
         return self.next()
 
     def next(self):
-        if self.__iter_index >= len(self)-1:
-            raise StopIteration()
+        if self.forced_length == -1:
+            if self.__iter_index >= len(self)-1:  # remove broadcast
+                self.__iter_index = 0
+                raise StopIteration()
+        else:
+            if self.__iter_index >= len(self):
+                self.__iter_index = 0
+                raise StopIteration()
         self.__iter_index += 1
         return self + self.__iter_index
 

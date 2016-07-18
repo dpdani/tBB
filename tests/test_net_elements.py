@@ -113,6 +113,13 @@ class NetworkTestCase(unittest.TestCase):
         self.assertEqual(ipelem.ip[0], "192.168.3.255")
         self.assertEqual(ipelem.mask, 24)
 
+    def test_iteration_force_length(self):
+        net = net_elements.Network("192.168.3.0/24-16")
+        for ipelement in net:
+            pass
+        self.assertEqual(ipelement.ip[0], "192.168.3.16")
+        self.assertEqual(ipelement.mask, 24)
+
     def test_broadcast(self):
         self.assertEqual(net_elements.Network("192.168.3.0/24").broadcast(),
                          net_elements.IPElement("192.168.3.255/24")

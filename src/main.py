@@ -7,6 +7,7 @@ For further information open tBB/docs/.
 
 """
 import os
+import socket
 import sys
 import datetime
 import logging
@@ -16,10 +17,9 @@ import json
 from net_elements import Network, Host
 
 
-default_time_format = "%d/%m/%Y-%I.%M.%S"
-
 logger = logging.getLogger(__name__)
-logging.config.dictConfig({
+default_time_format = "%d/%m/%Y-%H.%M.%S"
+default_logging_config = {
     'version': 1,
     'disable_existing_loggers': False,
 
@@ -39,15 +39,16 @@ logging.config.dictConfig({
             'class': 'logging.StreamHandler',
             'formatter': 'brief',
         },
-        # 'syslog': {
-        #     'level': 'WARNING',
-        #     'class': 'logging.handlers.SysLogHandler',
-        #     'formatter': 'complete',
-        #     'address': '("", logging.handlers.SYSLOG_UDP_PORT)',  # TODO: where is it?
-        #     'facility': 'logging.handlers.SysLogHandler.LOG_SYSLOG',
-        # },
+        'syslog': {
+            'level': 'WARNING',
+            'class': 'logging.handlers.SysLogHandler',
+            'formatter': 'complete',
+            'address': ("192.168.46.23", 1984),  #
+            'socktype': socket.SOCK_DGRAM,
+            'facility': logging.handlers.SysLogHandler.LOG_DAEMON,
+        },
         'file': {
-            'level': 'INFO',
+            'level': 'DEBUG',
             'class': 'logging.handlers.RotatingFileHandler',
             'formatter': 'complete',
             'maxBytes': 10000000,  # 10 Mb
@@ -57,23 +58,52 @@ logging.config.dictConfig({
     },
     'loggers': {
         '': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console', 'file', 'syslog'],
             'level': 'INFO',
             'propagate': True
         }
     }
-})
+}
+
+
+def configure_logging(config_file):
+    if config_file:
+        if 'logging' in config_file:
+            try:
+                logging.config.dictConfig(config_file['logging'])
+            except Exception:
+                print(config_file)
+                logger.warning("Couldn't use config file for logging.", exc_info=True)
+            else:
+                return
+    logging.config.dictConfig(default_logging_config)
+
+
+def read_configuration_file(path):
+    config = dict()
+    if os.path.exists(path):
+        with open(path, 'r') as f:
+            read = f.read().replace('{default_time_format}', default_time_format)
+        try:
+            config = json.loads(read)
+        except (ValueError, ImportError):
+            logger.info("Found configuration file at {}, but is malformed.", path, exc_info=True)
+        else:
+            logger.info("Found configuration file at {}.", path)
+        try:
+            config['logging']['handlers']['syslog']['address'] = \
+                (config['logging']['handlers']['syslog']['address']['ip'],
+                 config['logging']['handlers']['syslog']['address']['port'])
+        except KeyError: pass
+    return config
 
 
 def main(args):
-    logging.info("tBB started with args {}".format(args))
-    config_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
-    config = None
-    if os.path.exists(config_file_path):
-        with open(config_file_path, 'r') as f:
-            config = json.load(f)
-        if len(config) > 0:
-            logging.info("Found configuration file at {}.".format(config_file_path))
+    config = read_configuration_file(
+        os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config.json"))
+    )
+    configure_logging(config)
+    logger.warning(" === tBB started ===  args: {}".format(args))  # warnings are sent to syslog
     if '--help' in args:
         print((
             "\n"
@@ -110,22 +140,21 @@ def main(args):
         silent = True
         del args[args.index('--silent')]
     if not silent: print((
-        "\n"
         " === tBB - The Big Brother ===\n"
-        "Started at: {}\n\n").format(datetime.datetime.strftime(datetime.datetime.now(), default_time_format)))
+        "Started at: {}\n").format(datetime.datetime.strftime(datetime.datetime.now(), default_time_format)))
     # remove all option arguments before reading requested network
     if len(args) > 0:
         netip = args[0]
     else:
         try:
             netip = config['networkIp']
-        except (TypeError, KeyError):  # config not found or 'networkIp' not set
+        except KeyError:  # config not found or 'networkIp' not set
             netip = input("Please, specify a network to monitor: ")
     try:
         net = Network(netip)
     except ValueError:  # invalid network input
         print("Cannot start tBB: '{}' is not a valid network address.".format(netip))
-        logging.info("tBB closed due to incorrect network address ({}).".format(netip))
+        logger.critical("tBB closed due to incorrect network address ({}).", netip)
         return
     # if not silent: print("Loading notifiers... ", end='')
     # load_notifiers()
@@ -146,9 +175,10 @@ def main(args):
     # if not silent: print("Running initial scan... ", end='')
     # initial_scan()
     # if not silent: print("{}/{} hosts up.".format(up_hosts, len(net)))
-    logging.info("Monitoring network {}.".format(net))
-    print("\nThe Big Brother is watching.\n")
+    logger.info("Monitoring network {}.".format(net))
+    if not silent: print("\nThe Big Brother is watching.\n")
 
 
 if __name__ == '__main__':
     main(sys.argv[1:])
+    logger.warning("  --- tBB closing ---")

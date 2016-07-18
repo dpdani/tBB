@@ -1,0 +1,51 @@
+{
+  "networkIp": "192.168.0.0/23",
+  "logging": {
+    "version": 1,
+    "disable_existing_loggers": false,
+
+    "formatters": {
+      "complete": {
+        "format": "%(levelname)s|%(name)s@%(asctime)s: %(message)s",
+        "datefmt": "{default_time_format}"
+      },
+      "brief": {
+        "format": "%(asctime)s: %(message)s",
+        "datefmt": "{default_time_format}"
+      },
+      "syslog": {
+        "format": "%(levelname)s|%(name)s: %(message)s"
+      }
+    },
+    "handlers": {
+      "console": {
+        "level": "WARNING",
+        "class": "logging.StreamHandler",
+        "formatter": "brief"
+      },
+      "syslog": {
+        "level": "WARNING",
+        "class": "logging.handlers.SysLogHandler",
+        "formatter": "syslog",
+        "address": {"ip": "localhost", "port": 1984},
+        "socktype": "ext://socket.SOCK_DGRAM",
+        "facility": "ext://logging.handlers.SysLogHandler.LOG_DAEMON"
+      },
+      "file": {
+        "level": "DEBUG",
+        "class": "logging.handlers.RotatingFileHandler",
+        "formatter": "complete",
+        "maxBytes": 10000000,
+        "backupCount": 4,
+        "filename": "tBB.log"
+      }
+    },
+    "loggers": {
+      "": {
+        "handlers": ["file", "syslog"],
+        "level": "INFO",
+        "propagate": true
+      }
+    }
+  }
+}
