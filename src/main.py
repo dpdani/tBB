@@ -14,10 +14,16 @@ import logging
 import logging.config
 import logging.handlers
 import json
-from net_elements import Network
+import asyncio
+import tracker
+from net_elements import *
+
+
+loop = asyncio.get_event_loop()
 
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 default_time_format = "%d/%m/%Y-%H.%M.%S"
 default_logging_config = {
     'version': 1,
@@ -79,6 +85,13 @@ def configure_logging(config_file):
     logging.config.dictConfig(default_logging_config)
 
 
+def configure_tracker(track, config):
+    if config:
+        if 'tracker' in config:
+            for attr in config['tracker']:
+                setattr(track, attr, config['tracker'][attr])
+
+
 def read_configuration_file(path):
     config = dict()
     if os.path.exists(path):
@@ -95,15 +108,68 @@ def read_configuration_file(path):
                 (config['logging']['handlers']['syslog']['address']['ip'],
                  config['logging']['handlers']['syslog']['address']['port'])
         except KeyError: pass
+        try:
+            config['tracker']['time_between_checks'] = datetime.timedelta(
+                minutes = config['tracker']['time_between_checks']['minutes'],
+                seconds = config['tracker']['time_between_checks']['seconds'],
+            )
+        except KeyError: pass
+        try:
+            config['tracker']['icmp'] = tracker.discoveries.ICMPDiscovery(
+                count = config['tracker']['discoveries']['icmp']['count'],
+                timeout = config['tracker']['discoveries']['icmp']['timeout'],
+                flood = config['tracker']['discoveries']['icmp']['flood']
+            )
+        except KeyError: pass
+        try:
+            config['tracker']['arp'] = tracker.discoveries.ARPDiscovery(
+                count = config['tracker']['discoveries']['arp']['count'],
+                timeout = config['tracker']['discoveries']['arp']['timeout'],
+                quit_on_first = config['tracker']['discoveries']['arp']['quit_on_first']
+            )
+        except KeyError: pass
+        try:
+            config['tracker']['syn'] = tracker.discoveries.SYNDiscovery(
+                ports = config['tracker']['discoveries']['syn']['ports'],
+                timeout = config['tracker']['discoveries']['syn']['timeout']
+            )
+        except KeyError: pass
+        try:
+            del config['tracker']['discoveries']
+        except KeyError: pass
     return config
 
 
+@asyncio.coroutine
+def tiny_cli(globals, locals):
+    import async_stdio
+    while True:
+        inp = yield from async_stdio.async_input('$ ')
+        if inp in ('q', 'exit', 'quit'):
+            break
+        try:
+            exec(inp, globals, locals)
+        except Exception as exc:
+            print(exc)
+    logger.warning("tBB close requested by user input ({}).".format(inp))
+    loop.stop()
+
+
 def main(args):
+    silent = False
+    if '--silent' in args:
+        silent = True
+        def write(*args, **kwargs):
+            pass
+        sys.stdout.write = write
     config = read_configuration_file(
         os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config.json"))
     )
     configure_logging(config)
     logger.warning(" === tBB started ===  args: {}".format(args))  # warnings are sent to syslog
+    try:
+        del args[args.index('--silent')]
+    except: pass
     if '--help' in args:
         print((
             "\n"
@@ -119,7 +185,7 @@ def main(args):
             "Options:\n"
             "    --help: show this message and exit.\n"
             "    --verbose: display information about host connecting/disconnecting and\n"
-            "               other stuff that would not be normally displayed.\n"
+            "               other information that would not be normally displayed.\n"
             "    --debug: display debug information. Implicitly shows --verbose information.\n"
             "    --silent: display nothing.\n"
             "    --no-arp: don't run ARP discoveries.\n"
@@ -127,21 +193,14 @@ def main(args):
             "    --no-syn: don't run SYN discoveries.\n").format(__doc__.strip()))
         # TODO: implement --no-*
         return
-    silent = False
     if '--verbose' in args:
         logger.setLevel(logging.INFO)
         del args[args.index('--verbose')]
     if '--debug' in args:
         logger.setLevel(logging.DEBUG)
         del args[args.index('--debug')]
-    if '--silent' in args:
-        silent = True
-        logger.setLevel(60)  # 60 > logging.CRITICAL
-        silent = True
-        del args[args.index('--silent')]
-    if not silent: print((
-        " === tBB - The Big Brother ===\n"
-        "Started at: {}\n").format(datetime.datetime.strftime(datetime.datetime.now(), default_time_format)))
+    print((" === tBB - The Big Brother ===\n"
+           "Started at: {}\n").format(datetime.datetime.strftime(datetime.datetime.now(), default_time_format)))
     # remove all option arguments before reading requested network
     if len(args) > 0:
         netip = args[0]
@@ -156,15 +215,15 @@ def main(args):
         print("Cannot start tBB: '{}' is not a valid network address.".format(netip))
         logger.critical("tBB closed due to incorrect network address ({}).", netip)
         return
-    # if not silent: print("Loading notifiers... ", end='')
+    # print("Loading notifiers... ", end='')
     # load_notifiers()
-    # if not silent: print("{} notifiers found.".format(len(notifiers)))
-    # if not silent: print("Opening port for frontends... ", end='')
+    # print("{} notifiers found.".format(len(notifiers)))
+    # print("Opening port for frontends... ", end='')
     # open_frontend_port()
-    # if not silent: print("port = {}".format(port))
-    # if not silent: print("Opening database... ", end='')
+    # print("port = {}".format(port))
+    # print("Opening database... ", end='')
     # connect_to_database()
-    # if not silent: print("database size = {}.".format(db_size))
+    # print("database size = {}.".format(db_size))
     # if not silent:
     #     if db_empty:
     #         print("First network map on record.")
@@ -172,13 +231,45 @@ def main(args):
     #         print("Loading network map on record... ", end='')
     #         load_record()
     #         print("last updated: {} ({} ago).".format(db_last_updated, db_last_updated_ago))
-    # if not silent: print("Running initial scan... ", end='')
+    # print("Running initial scan... ", end='')
     # initial_scan()
-    # if not silent: print("{}/{} hosts up.".format(up_hosts, len(net)))
+    # print("{}/{} hosts up.".format(up_hosts, len(net)))
     logger.info("Monitoring network {}.".format(net))
-    if not silent: print("\nThe Big Brother is watching.\n")
+    logger.info("No previous network scans found on record. Running initial check...")  # TODO: requires serialization
+    track = tracker.Tracker(net)
+    configure_tracker(track, config)
+    task = asyncio.gather(track.do_complete_network_scan())
+    try:
+        up = loop.run_until_complete(task)[0]
+    except KeyboardInterrupt:
+        task.cancel()
+        loop.run_forever()
+        task.exception()
+        return
+    logger.info("Initial check done. {}/{} hosts up.".format(up, len(net)))
+    print("\nThe Big Brother is watching.\n")
+    tasks = asyncio.gather(
+        track.keep_network_tracked(),
+        tiny_cli(globals(), locals())
+    )
+    try:
+        loop.run_until_complete(tasks)
+    except KeyboardInterrupt:
+        print("\n")
+        logger.warning("tBB close requested by user input (Ctrl-C).")
+        tasks.cancel()
+        loop.run_forever()
+        tasks.exception()
+    except RuntimeError:
+        pass  # loop stopped before Futures completed.
+    finally:
+        loop.close()
 
 
 if __name__ == '__main__':
     main(sys.argv[1:])
+    if loop.is_running():
+        loop.stop()
+    if not loop.is_closed():
+        loop.close()
     logger.warning("  --- tBB closing ---")

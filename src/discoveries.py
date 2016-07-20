@@ -11,10 +11,11 @@ import logging
 import time
 from asyncio import coroutine
 from asyncio.subprocess import PIPE, STDOUT
-from src.net_elements import IPElement
+from net_elements import IPElement
 
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 @coroutine
@@ -72,6 +73,11 @@ class DiscoveryMethod:
         return results
 
 
+class PingedBroadcast(Exception):
+    def __init__(self, ip):
+        super().__init__("requested to ping broadcast '{}'.".format(ip))
+
+
 class ICMPDiscovery(DiscoveryMethod):
     """ICMP discovery method. Uses system's ping to perform requests."""
 
@@ -110,9 +116,12 @@ class ICMPDiscovery(DiscoveryMethod):
         took = time.time() - start
         # e.g.: ping = "1 packets transmitted, 1 received, 0% packet loss, time 0ms"
         #       filtered_result = 1 -----------^
-        for result in result:
-            filtered_result = int(result.split(', ')[1].split(' ')[0])
-        logger.debug("Pinging IP '{}' resulted '{}'.", ip, filtered_result)
+        filtered_result = None
+        for res in result:
+            if res.find('broadcast') != -1:
+                raise PingedBroadcast(ip)
+            filtered_result = int(res.split(', ')[1].split(' ')[0])
+        logger.debug("Pinging IP '{}' resulted '{}'.".format(ip, filtered_result))
         if took >= self.count * 1.1:
             logger.warning("Ping to IP '{}' took {:.2f} seconds. Network congestion?", ip, took)
         return filtered_result != 0
@@ -166,6 +175,7 @@ class ARPDiscovery(DiscoveryMethod):
         #        Sent 1 probes (1 broadcast(s))
         #        Received 1 response(s)
         #      up = ------^
+        logger.debug("ARPinging IP '{}' resulted '{}'.".format(ip, up != 0))
         if took >= self.count * 1.1:
             logger.warning("ARPing to IP '{}' took {:.2f} seconds. Network congestion?", ip, took)
         return up != 0, host
@@ -205,6 +215,7 @@ class SYNDiscovery(DiscoveryMethod):
         took = time.time() - start
         filtered_result = result[result.find(') ')+2:result.find(': ', 10)]
         # TODO: network congestion check
+        logger.debug("Syn to IP '{}' resulted '{}'.".format(ip, filtered_result))
         if filtered_result in ('succeeded', 'failed'):  # not timed out
             return True
         return False

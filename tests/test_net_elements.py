@@ -9,7 +9,6 @@ if path not in sys.path:
 from src import net_elements
 
 
-
 class IPElementTestCase(unittest.TestCase):
     def test_init_valid_string(self):
         ipelem = net_elements.IPElement("192.168.3.119/24")
@@ -60,6 +59,10 @@ class IPElementTestCase(unittest.TestCase):
             net_elements.IPElement("192.168.3.119/24") - 19,
             net_elements.IPElement("192.168.3.100/24")
         )
+
+    def test_eq(self):
+        self.assertTrue(net_elements.IPElement("192.168.3.100/24") == net_elements.IPElement("192.168.3.100/24"))
+        self.assertTrue(net_elements.IPElement("192.168.3.100/24") == "192.168.3.100/24")
 
     def test_repr(self):
         self.assertEqual(repr(net_elements.IPElement("192.168.3.0/24")), "<IPElement 192.168.3.0/24>")

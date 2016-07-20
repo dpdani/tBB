@@ -116,12 +116,33 @@ class IPElement(object):
                 return False
         return True
 
+    def as_int(self):
+        num = 0
+        for i, ip_part in enumerate(reversed(self.ip[1])):
+            num += ip_part * 10**(3*i)
+        return num
+
     def __eq__(self, other):
+        if type(other) == str:
+            try:
+                other = self.__class__(other)
+            except (TypeError, ValueError):
+                return False
         if not isinstance(other, self.__class__):
             return False
         if self.ip == other.ip and self.mask == other.mask:
             return True
         return False
+
+    def __lt__(self, other):
+        if type(other) == str:
+            try:
+                other = self.__class__(other)
+            except (TypeError, ValueError):
+                return False
+        if not isinstance(other, self.__class__):
+            raise TypeError("unorderable types: {} < {}.".format(self, other))
+        return self.as_int() < other.as_int()
 
     def __hash__(self):
         return self.ip[0].__hash__()
@@ -156,7 +177,12 @@ class MACElement(object):
         self.mac = mac.lower()
 
     def __eq__(self, other):
-        if not isinstance(other, MACElement):
+        if type(other) == str:
+            try:
+                other = self.__class__(other)
+            except (TypeError, ValueError):
+                return False
+        if not isinstance(other, self.__class__):
             return False
         return self.mac == other.mac
 
@@ -269,14 +295,25 @@ class IPHost(object):
     def __init__(self, ip):
         if not isinstance(ip, IPElement):
             raise TypeError("expected an IPElement instance for argument ip. Got: {}".format(ip))
-        self.ip = ip
+        self._ip = ip
         self.history = {}
         self.discovery_history = {}
-        self.last_check = None
+        self.last_check = datetime.datetime.now() - datetime.timedelta(days=100)
+
+    @property
+    def ip(self):
+        return self._ip.ip
+
+    @ip.setter
+    def ip(self, value):
+        self._ip.ip = value
 
     @property
     def mac(self):
-        return self.history[list(self.history.keys())[0]]
+        try:
+            return self.history[list(self.history.keys())[0]]
+        except IndexError:  # history is empty
+            return None
 
     @property
     def ago(self):
@@ -284,13 +321,34 @@ class IPHost(object):
 
     @property
     def last_discovery_method(self):
-        return self.discovery_history[list(self.discovery_history.keys())[0]]
+        try:
+            return self.discovery_history[list(self.discovery_history.keys())[0]]
+        except IndexError:  # history is empty
+            return None
 
     def add_to_history(self, stuff):
         self.history[datetime.datetime.now()] = stuff
 
     def add_to_discovery_history(self, stuff):
         self.discovery_history[datetime.datetime.now()] = stuff
+
+    def update(self, mac, method):
+        self.last_check = datetime.datetime.now()
+        if mac != self.mac:
+            self.add_to_history(mac)
+        if method != self.last_discovery_method:
+            self.add_to_discovery_history(method)
+
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+        return self.ip == other.ip
+
+    def __repr__(self):
+        if self.mac is not None:
+            return "<{} {}@{}>".format(self.__class__.__name__, self.ip[0], self.mac)
+        else:
+            return "<{} {}>".format(self.__class__.__name__, self.ip[0])
 
 
 class MACHost(object):
@@ -299,11 +357,14 @@ class MACHost(object):
             raise TypeError("expected a MACElement instance for argument mac. Got: {}".format(mac))
         self.mac = mac
         self.history = {}
-        self.last_update = None
+        self.last_update = datetime.datetime.fromtimestamp(0)
 
     @property
     def ip(self):
-        return self.history[list(self.history.keys())[0]]
+        try:
+            return self.history[list(self.history.keys())[0]]
+        except IndexError:  # history is empty
+            return None
 
     @property
     def ago(self):
@@ -313,3 +374,13 @@ class MACHost(object):
         if not isinstance(stuff, tuple):
             stuff = (stuff,)
         self.history[datetime.datetime.now()] = stuff
+
+    def update(self, ip):
+        self.last_check = datetime.datetime.now()
+        if ip != self.ip:
+            self.add_to_history(ip)
+
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+        return self.ip == other.ip
