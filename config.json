@@ -1,5 +1,5 @@
 {
-  "networkIp": "192.168.2.0/23",
+  "networkIp": "192.168.2.0/23-2",
   "logging": {
     "version": 1,
     "disable_existing_loggers": false,
@@ -57,7 +57,8 @@
     "do_icmp": true,
     "do_arp": true,
     "do_syn": false,
-    "time_between_checks": {"minutes": 0, "seconds": 2},
-    "maximum_seconds_randomly_added": 0
+    "enable_notifiers": true,
+    "time_between_checks": {"minutes": 0, "seconds": 8},
+    "maximum_seconds_randomly_added": 4
   }
 }

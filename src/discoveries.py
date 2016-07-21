@@ -9,6 +9,8 @@ Library asyncio.subprocess is used to implement these methods.
 import asyncio
 import logging
 import time
+import socket
+import uuid
 from asyncio import coroutine
 from asyncio.subprocess import PIPE, STDOUT
 from net_elements import IPElement
@@ -38,6 +40,10 @@ def shell(command):
 
 class DiscoveryMethod:
     """Base-abstract class for all discovery methods."""
+
+    def __init__(self, short_name, enabled=True):
+        self.enabled = True
+        self.short_name = short_name
 
     @coroutine
     def run(self, ip):
@@ -81,7 +87,7 @@ class PingedBroadcast(Exception):
 class ICMPDiscovery(DiscoveryMethod):
     """ICMP discovery method. Uses system's ping to perform requests."""
 
-    def __init__(self, count, timeout, flood=False):
+    def __init__(self, count, timeout, flood=False, enabled=True):
         """
         :param count: number of ping(s) to transmit. Has to be >= 1.
         :param timeout: pings timeout. 0 -> no timeout.
@@ -90,6 +96,7 @@ class ICMPDiscovery(DiscoveryMethod):
         :type timeout: int
         :type flood: bool
         """
+        super().__init__('icmp', enabled)
         if count < 1:
             raise ValueError("count must be >= 1.")
         self.count = count
@@ -133,7 +140,7 @@ HeavyICMPDiscovery = ICMPDiscovery(count=4, timeout=0)
 class ARPDiscovery(DiscoveryMethod):
     """ARP discovery method. Uses system's arping to perform requests."""
 
-    def __init__(self, count, timeout, quit_on_first=True):
+    def __init__(self, count, timeout, quit_on_first=True, enabled=True):
         """
         :param count: number of arp requests to perform. Has to be >= 1.
         :param timeout: pings timeout. 0 -> no timeout.
@@ -142,6 +149,7 @@ class ARPDiscovery(DiscoveryMethod):
         :type timeout: int
         :type quit_on_first: bool
         """
+        super().__init__('arp', enabled)
         if count < 1:
             raise ValueError("count must be >= 1.")
         self.count = count
@@ -188,13 +196,14 @@ HeavyARPDiscovery = ARPDiscovery(count=4, timeout=0, quit_on_first=True)
 class SYNDiscovery(DiscoveryMethod):
     """SYN discovery method. Uses system's netcat to perform requests."""
 
-    def __init__(self, ports, timeout):
+    def __init__(self, ports, timeout, enabled=True):
         """
         :param ports: ports to perform requests to.
         :param timeout: pings timeout. 0 -> no timeout.
         :type ports: str
         :type timeout: int
         """
+        super().__init__('syn', enabled)
         self.ports = ports
         self.timeout = timeout
 
@@ -215,6 +224,8 @@ class SYNDiscovery(DiscoveryMethod):
         took = time.time() - start
         filtered_result = result[result.find(') ')+2:result.find(': ', 10)]
         # TODO: network congestion check
+        if result.find("No route to host") > -1:
+            filtered_result = 'timed out'
         logger.debug("Syn to IP '{}' resulted '{}'.".format(ip, filtered_result))
         if filtered_result in ('succeeded', 'failed'):  # not timed out
             return True

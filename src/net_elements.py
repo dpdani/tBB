@@ -116,6 +116,19 @@ class IPElement(object):
                 return False
         return True
 
+    def is_broadcast(self):
+        """
+        Returns True if self.ip is a network IP.
+        :return: bool
+        """
+        num = ''
+        for i in self.ip[1]:
+            num += '{0:08b}'.format(i)
+        for i in num[self.mask:]:
+            if i != '1':
+                return False
+        return True
+
     def as_int(self):
         num = 0
         for i, ip_part in enumerate(reversed(self.ip[1])):
@@ -296,7 +309,8 @@ class IPHost(object):
         if not isinstance(ip, IPElement):
             raise TypeError("expected an IPElement instance for argument ip. Got: {}".format(ip))
         self._ip = ip
-        self.history = {}
+        self.mac_history = {}
+        self.is_up_history = {}
         self.discovery_history = {}
         self.last_check = datetime.datetime.now() - datetime.timedelta(days=100)
 
@@ -309,9 +323,16 @@ class IPHost(object):
         self._ip.ip = value
 
     @property
+    def is_up(self):
+        try:
+            return self.is_up_history[list(self.is_up_history.keys())[-1]]
+        except IndexError:  # history is empty
+            return None
+
+    @property
     def mac(self):
         try:
-            return self.history[list(self.history.keys())[0]]
+            return self.mac_history[list(self.mac_history.keys())[-1]]
         except IndexError:  # history is empty
             return None
 
@@ -322,22 +343,43 @@ class IPHost(object):
     @property
     def last_discovery_method(self):
         try:
-            return self.discovery_history[list(self.discovery_history.keys())[0]]
+            return self.discovery_history[list(self.discovery_history.keys())[-1]]
         except IndexError:  # history is empty
             return None
 
-    def add_to_history(self, stuff):
-        self.history[datetime.datetime.now()] = stuff
+    def add_to_mac_history(self, stuff):
+        self.mac_history[datetime.datetime.now()] = stuff
 
     def add_to_discovery_history(self, stuff):
         self.discovery_history[datetime.datetime.now()] = stuff
 
-    def update(self, mac, method):
+    def add_to_is_up_history(self, stuff):
+        self.is_up_history[datetime.datetime.now()] = stuff
+
+    def update(self, mac, method, is_up):
         self.last_check = datetime.datetime.now()
+        changed = False
         if mac != self.mac:
-            self.add_to_history(mac)
+            self.add_to_mac_history(mac)
+            changed = True
         if method != self.last_discovery_method:
             self.add_to_discovery_history(method)
+            changed = True
+        if is_up != self.is_up:
+            self.add_to_is_up_history(is_up)
+            changed = True
+        return changed
+
+    def print_histories(self):
+        print("MAC HISTORY FOR IPHOST: {}".format(repr(self)))
+        for entry in self.mac_history:
+            print(entry, " - ", self.mac_history[entry])
+        print("UP HISTORY FOR IPHOST: {}".format(repr(self)))
+        for entry in self.is_up_history:
+            print(entry, " - ", self.is_up_history[entry])
+        print("DISCOVERY HISTORY FOR IPHOST: {}".format(repr(self)))
+        for entry in self.discovery_history:
+            print(entry, " - ", self.discovery_history[entry])
 
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
@@ -357,12 +399,13 @@ class MACHost(object):
             raise TypeError("expected a MACElement instance for argument mac. Got: {}".format(mac))
         self.mac = mac
         self.history = {}
-        self.last_update = datetime.datetime.fromtimestamp(0)
+        self.is_up_history = {}
+        self.last_update = datetime.datetime.now() - datetime.timedelta(days=100)
 
     @property
     def ip(self):
         try:
-            return self.history[list(self.history.keys())[0]]
+            return self.history[list(self.history.keys())[-1]]
         except IndexError:  # history is empty
             return None
 
@@ -370,17 +413,51 @@ class MACHost(object):
     def ago(self):
         return datetime.datetime.now() - self.last_update
 
+    @property
+    def is_up(self):
+        try:
+            return self.is_up_history[list(self.is_up_history.keys())[-1]]
+        except IndexError:  # history is empty
+            return None
+
     def add_to_history(self, stuff):
         if not isinstance(stuff, tuple):
             stuff = (stuff,)
         self.history[datetime.datetime.now()] = stuff
 
-    def update(self, ip):
-        self.last_check = datetime.datetime.now()
-        if ip != self.ip:
+    def add_to_is_up_history(self, stuff):
+        self.is_up_history[datetime.datetime.now()] = stuff
+
+    def update(self, ip, is_up):
+        self.last_update = datetime.datetime.now()
+        changed = False
+        if self.ip is not None:
+            if ip not in self.ip:
+                self.add_to_history(ip)
+                changed = True
+        else:
             self.add_to_history(ip)
+            changed = True
+        if is_up != self.is_up:
+            self.add_to_is_up_history(is_up)
+            changed = True
+        return changed
+
+    def print_histories(self):
+        print("IP HISTORY FOR macHOST: {}".format(repr(self)))
+        for entry in self.history:
+            print(entry, " - ", self.history[entry])
+        print("UP HISTORY FOR macHOST: {}".format(repr(self)))
+        for entry in self.is_up_history:
+            print(entry, " - ", self.is_up_history[entry])
 
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
             return False
         return self.ip == other.ip
+
+    def __repr__(self):
+        if self.mac is not None:
+            return "<{} {}@{}>".format(self.__class__.__name__, self.mac, self.ip)
+        else:
+            return "<{} {}>".format(self.__class__.__name__, self.mac)

@@ -72,13 +72,14 @@ default_logging_config = {
 }
 
 
-def configure_logging(config_file):
+def configure_logging(config_file, silent):
     if config_file:
         if 'logging' in config_file:
             try:
+                if silent:
+                    config_file['logging']['handlers']['console']['level'] = 60
                 logging.config.dictConfig(config_file['logging'])
             except Exception:
-                print(config_file)
                 logger.warning("Couldn't use config file for logging.", exc_info=True)
             else:
                 return
@@ -118,24 +119,31 @@ def read_configuration_file(path):
             config['tracker']['icmp'] = tracker.discoveries.ICMPDiscovery(
                 count = config['tracker']['discoveries']['icmp']['count'],
                 timeout = config['tracker']['discoveries']['icmp']['timeout'],
-                flood = config['tracker']['discoveries']['icmp']['flood']
+                flood = config['tracker']['discoveries']['icmp']['flood'],
+                enabled = config['tracker']['do_icmp']
             )
         except KeyError: pass
         try:
             config['tracker']['arp'] = tracker.discoveries.ARPDiscovery(
                 count = config['tracker']['discoveries']['arp']['count'],
                 timeout = config['tracker']['discoveries']['arp']['timeout'],
-                quit_on_first = config['tracker']['discoveries']['arp']['quit_on_first']
+                quit_on_first = config['tracker']['discoveries']['arp']['quit_on_first'],
+                enabled = config['tracker']['do_arp']
             )
         except KeyError: pass
         try:
             config['tracker']['syn'] = tracker.discoveries.SYNDiscovery(
                 ports = config['tracker']['discoveries']['syn']['ports'],
-                timeout = config['tracker']['discoveries']['syn']['timeout']
+                timeout = config['tracker']['discoveries']['syn']['timeout'],
+                enabled = config['tracker']['do_syn']
             )
         except KeyError: pass
         try:
             del config['tracker']['discoveries']
+            cached = dict(config['tracker'])
+            for key in cached:
+                if key.startswith('do_'):
+                    del config['tracker'][key]
         except KeyError: pass
     return config
 
@@ -150,6 +158,7 @@ def tiny_cli(globals, locals):
         try:
             exec(inp, globals, locals)
         except Exception as exc:
+            print("ERROR.")
             print(exc)
     logger.warning("tBB close requested by user input ({}).".format(inp))
     loop.stop()
@@ -165,7 +174,7 @@ def main(args):
     config = read_configuration_file(
         os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config.json"))
     )
-    configure_logging(config)
+    configure_logging(config, silent)
     logger.warning(" === tBB started ===  args: {}".format(args))  # warnings are sent to syslog
     try:
         del args[args.index('--silent')]
@@ -238,32 +247,49 @@ def main(args):
     logger.info("No previous network scans found on record. Running initial check...")  # TODO: requires serialization
     track = tracker.Tracker(net)
     configure_tracker(track, config)
-    task = asyncio.gather(track.do_complete_network_scan())
+    enable_notifiers = track.enable_notifiers
+    track.enable_notifiers = False  # disabling notifiers for initial check
+    # tasks = []
+    # start = 1
+    # hosts = 16
+    # while start < len(net):
+    #     tasks.append(asyncio.async(track.do_partial_scan(start, hosts)))
+    #     start += hosts
+    tasks = asyncio.async(track.do_complete_network_scan())
+    start = datetime.datetime.now()
     try:
-        up = loop.run_until_complete(task)[0]
+        up = loop.run_until_complete(tasks)
     except KeyboardInterrupt:
-        task.cancel()
-        loop.run_forever()
-        task.exception()
-        return
-    logger.info("Initial check done. {}/{} hosts up.".format(up, len(net)))
-    print("\nThe Big Brother is watching.\n")
-    tasks = asyncio.gather(
-        track.keep_network_tracked(),
-        tiny_cli(globals(), locals())
-    )
-    try:
-        loop.run_until_complete(tasks)
-    except KeyboardInterrupt:
-        print("\n")
-        logger.warning("tBB close requested by user input (Ctrl-C).")
-        tasks.cancel()
-        loop.run_forever()
-        tasks.exception()
-    except RuntimeError:
-        pass  # loop stopped before Futures completed.
+        user_quit(tasks)
+    else:
+        took = datetime.datetime.now() - start
+        track.enable_notifiers = enable_notifiers
+        logger.info("Initial check done. {}/{} hosts up. Took {}.".format(up, len(net), took))
+        print("\nThe Big Brother is watching.\n")
+        tasks = [
+            track.keep_network_tracked(initial_sleep=0)
+        ]
+        if not silent:
+            tasks.append(tiny_cli(globals(), locals()))
+        tasks = asyncio.gather(*tasks)
+        try:
+            loop.run_until_complete(tasks)
+        except KeyboardInterrupt:
+            user_quit(tasks)
+        except RuntimeError:
+            pass  # loop stopped before Futures completed.
+        finally:
+            loop.close()
     finally:
         loop.close()
+
+
+def user_quit(tasks):
+    print("\n")
+    logger.warning("tBB close requested by user input (Ctrl-C).")
+    tasks.cancel()
+    loop.run_forever()
+    tasks.exception()
 
 
 if __name__ == '__main__':
