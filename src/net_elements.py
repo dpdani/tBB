@@ -5,6 +5,13 @@ Network elements representations for Python.
 """
 
 import datetime
+import math
+
+
+def netmask_from_netlength(hosts):
+    if not (hosts != 0 and ((hosts & (hosts - 1)) == 0)):
+        raise ValueError("expected argument hosts to be a power of 2. Got: {}".format(hosts))
+    return 32 - math.log(hosts, 2)
 
 
 class IPElement(object):
@@ -325,14 +332,14 @@ class IPHost(object):
     @property
     def is_up(self):
         try:
-            return self.is_up_history[list(self.is_up_history.keys())[-1]]
+            return self.is_up_history[sorted(self.is_up_history.keys())[-1]]
         except IndexError:  # history is empty
             return None
 
     @property
     def mac(self):
         try:
-            return self.mac_history[list(self.mac_history.keys())[-1]]
+            return self.mac_history[sorted(self.mac_history.keys())[-1]]
         except IndexError:  # history is empty
             return None
 
@@ -343,7 +350,7 @@ class IPHost(object):
     @property
     def last_discovery_method(self):
         try:
-            return self.discovery_history[list(self.discovery_history.keys())[-1]]
+            return self.discovery_history[sorted(self.discovery_history.keys())[-1]]
         except IndexError:  # history is empty
             return None
 
@@ -359,10 +366,10 @@ class IPHost(object):
     def update(self, mac, method, is_up):
         self.last_check = datetime.datetime.now()
         changed = False
-        if mac != self.mac:
+        if mac != self.mac and mac is not None:
             self.add_to_mac_history(mac)
             changed = True
-        if method != self.last_discovery_method:
+        if method != self.last_discovery_method and method is not None:
             self.add_to_discovery_history(method)
             changed = True
         if is_up != self.is_up:
@@ -372,13 +379,13 @@ class IPHost(object):
 
     def print_histories(self):
         print("MAC HISTORY FOR IPHOST: {}".format(repr(self)))
-        for entry in self.mac_history:
+        for entry in sorted(self.mac_history):
             print(entry, " - ", self.mac_history[entry])
         print("UP HISTORY FOR IPHOST: {}".format(repr(self)))
-        for entry in self.is_up_history:
+        for entry in sorted(self.is_up_history):
             print(entry, " - ", self.is_up_history[entry])
         print("DISCOVERY HISTORY FOR IPHOST: {}".format(repr(self)))
-        for entry in self.discovery_history:
+        for entry in sorted(self.discovery_history):
             print(entry, " - ", self.discovery_history[entry])
 
     def __eq__(self, other):
@@ -388,9 +395,9 @@ class IPHost(object):
 
     def __repr__(self):
         if self.mac is not None:
-            return "<{} {}@{}>".format(self.__class__.__name__, self.ip[0], self.mac)
+            return "<{} {}/{}@{}>".format(self.__class__.__name__, self.ip[0], self._ip.mask, self.mac)
         else:
-            return "<{} {}>".format(self.__class__.__name__, self.ip[0])
+            return "<{} {}/{}>".format(self.__class__.__name__, self.ip[0], self._ip.mask)
 
 
 class MACHost(object):
@@ -405,7 +412,7 @@ class MACHost(object):
     @property
     def ip(self):
         try:
-            return self.history[list(self.history.keys())[-1]]
+            return self.history[sorted(self.history.keys())[-1]]
         except IndexError:  # history is empty
             return None
 
@@ -416,7 +423,7 @@ class MACHost(object):
     @property
     def is_up(self):
         try:
-            return self.is_up_history[list(self.is_up_history.keys())[-1]]
+            return self.is_up_history[sorted(self.is_up_history.keys())[-1]]
         except IndexError:  # history is empty
             return None
 
@@ -445,10 +452,10 @@ class MACHost(object):
 
     def print_histories(self):
         print("IP HISTORY FOR macHOST: {}".format(repr(self)))
-        for entry in self.history:
+        for entry in sorted(self.history):
             print(entry, " - ", self.history[entry])
         print("UP HISTORY FOR macHOST: {}".format(repr(self)))
-        for entry in self.is_up_history:
+        for entry in sorted(self.is_up_history):
             print(entry, " - ", self.is_up_history[entry])
 
     def __eq__(self, other):

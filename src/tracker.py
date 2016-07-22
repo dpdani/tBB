@@ -9,7 +9,7 @@ from asyncio import coroutine
 import logging
 import datetime
 import random
-from net_elements import Network, IPElement, IPHost, MACElement, MACHost
+from net_elements import Network, IPElement, IPHost, MACElement, MACHost, netmask_from_netlength
 import discoveries
 
 
@@ -38,6 +38,7 @@ class Tracker(object):
         self.enable_notifiers = True
         self._outer_status = 'initialized'  # supply information to front-ends
         self._status = 'initialized'        #
+        self.ignore_networks_and_broadcasts = True
 
     @property
     def up_hosts(self):
@@ -103,9 +104,16 @@ class Tracker(object):
         #     start += hosts
         # yield from asyncio.gather(*tasks)
         for ip in self.network:
-            if not ip.is_broadcast() and not ip.is_network() and ip not in self.ignore:
-                if (yield from self.do_single_scan(ip)):
-                    up += 1
+            if self.ignore_networks_and_broadcasts:
+                if ip.is_broadcast() and ip.is_network() and ip in self.ignore:
+                    logger.debug("Ignoring: {}".format(ip))
+                    continue
+            else:
+                if ip in self.ignore:
+                    logger.debug("Ignoring: {}".format(ip))
+                    continue
+            if (yield from self.do_single_scan(ip)):
+                up += 1
         self.discoveries[1].enabled = syn_enabled
         return up
 
@@ -130,9 +138,20 @@ class Tracker(object):
         ip = self.network + start
         logger.debug("Scanning network from {} for {} hosts.".format(ip, hosts))
         self.outer_status = "Scanning network '{}' from {} for {} hosts.".format(self.network, ip, hosts)
+        up = 0
         for _ in range(hosts - start):
-            yield from self.do_single_scan(ip)
+            if self.ignore_networks_and_broadcasts:
+                if ip.is_broadcast() and ip.is_network() and ip in self.ignore:
+                    logger.debug("Ignoring: {}".format(ip))
+                    continue
+            else:
+                if ip in self.ignore:
+                    logger.debug("Ignoring: {}".format(ip))
+                    continue
+            if (yield from self.do_single_scan(ip)):
+                up += 1
             ip += 1
+        return up
 
     @coroutine
     def do_single_scan(self, ip):
@@ -156,7 +175,7 @@ class Tracker(object):
         if ip not in self.ip_hosts.keys():
             logger.error("asked to scan '{}', but couldn't locate it in self.ip_hosts.".format(ip))
             raise RuntimeError("could not internally locate host '{}'.".format(ip))
-        logger.debug("scanning ip '{}'.".format(ip))
+        logger.debug("scanning ip '{}'. {} since last scan.".format(ip, self.ip_hosts[ip].ago))
         method = None
         is_up = False
         self.status = "scanning ip '{}' - running mac discovery.".format(ip)
@@ -175,9 +194,6 @@ class Tracker(object):
                     method = None
         self.status = "scanning ip '{}' - finishing.".format(ip)
         ip_changed = self.ip_hosts[ip].update(mac, method, is_up)
-        # mac_ip = None  # ip to take in consideration for mac updates
-        # if is_up:
-        #     mac_ip = ip
         try:
             if mac is not None:
                 mac_changed = self.mac_hosts[MACElement(mac)].update(ip, is_up)
@@ -216,7 +232,10 @@ class Tracker(object):
         yield from asyncio.sleep(initial_sleep)
         host = self.highest_priority_host()
         while True:
-            yield from self.do_single_scan(host)
+            try:
+                yield from self.do_single_scan(host)
+            except discoveries.ParsingException as exc:
+                logger.error("Error while parsing: {}".format(exc))
             sleep_for = self.time_between_checks.total_seconds() + random.randint(0, self.maximum_seconds_randomly_added)
             host = self.highest_priority_host()
             self.status = "sleeping for {} seconds. next ip to scan: {}.".format(sleep_for, host)
@@ -241,21 +260,151 @@ class Tracker(object):
         self.status = 'calculating highest priority host.'
         priorities = {}  # priority: IP
         for host in self.ip_hosts.values():
-            if not host._ip.is_broadcast() and not host._ip.is_network() and host._ip not in self.ignore:
-                if host._ip in self.priorities:
-                    priorities[
-                        (self.priorities[host._ip] + int(host.ago.total_seconds())) * 10**12 + host._ip.as_int()
-                    ] = host._ip
-                else:
-                    priorities[
-                        int(host.ago.total_seconds()) * 10 ** 12 + host._ip.as_int()
-                    ] = host._ip
+            if self.ignore_networks_and_broadcasts:
+                if host._ip.is_broadcast() and host._ip.is_network() and host._ip in self.ignore:
+                    logger.debug("Ignoring: {}".format(host._ip))
+                    continue
+            else:
+                if host._ip in self.ignore:
+                    logger.debug("Ignoring: {}".format(host._ip))
+                    continue
+            if host._ip in self.priorities:
+                priorities[
+                    (self.priorities[host._ip] + int(host.ago.total_seconds())) * 10**12 + host._ip.as_int()
+                ] = host._ip
+            else:
+                priorities[
+                    int(host.ago.total_seconds()) * 10 ** 12 + host._ip.as_int()
+                ] = host._ip
         return priorities[max(priorities)]
 
     def fire_notifiers(self, ip, mac, method, is_up):
         logger.info("{}@{} changed status. method: {}, is_up: {}.".format(ip, mac, method, is_up))
         if self.enable_notifiers:
             print("FIRING NOTIFIERS.")
-# track.time_between_checks = datetime.timedelta(minutes=0, seconds=0.5); track.maximum_seconds_randomly_added = 1
-# track.ip_hosts[IPElement("192.168.3.161/25")].print_histories()
+
+
+class TrackersHandler(object):
+    def __init__(self, network, hosts=16):
+        self.network = network
+        self.trackers = []
+        start = 0
+        while start < len(self.network):
+            ip = self.network + start
+            ip.mask = netmask_from_netlength(hosts)
+            if self.network.broadcast() < ip + hosts:
+                net = Network(ip)
+                net.forced_length = len(self.network) - start - 1  # using forced_length, last ip would be next network
+                tr = Tracker(net)
+            else:
+                tr = Tracker(Network(ip))
+            tr.ignore_networks_and_broadcasts = False  # sub-networks broadcasts are not real broadcasts
+            if sorted(tr.ip_hosts.keys())[-1].ip[0] == self.network.broadcast().ip[0]:
+                # since broadcasts ignoring is inhibited by default, manually ignore real broadcast
+                tr.ignore.append(sorted(tr.ip_hosts.keys())[-1])
+            self.trackers.append(tr)
+            start += hosts
+
+    @property
+    def enable_notifiers(self):
+        return [tr.enable_notifiers for tr in self.trackers]
+
+    @enable_notifiers.setter
+    def enable_notifiers(self, value):
+        for tr in self.trackers:
+            tr.enable_notifiers = value
+
+    @property
+    def status(self):
+        return [tr.status for tr in self.trackers]
+
+    @status.setter
+    def status(self, value):
+        for tr in self.trackers:
+            tr.status = value
+
+    @property
+    def outer_status(self):
+        return [tr.outer_status for tr in self.trackers]
+
+    @outer_status.setter
+    def outer_status(self, value):
+        for tr in self.trackers:
+            tr.outer_status = value
+
+    @property
+    def time_between_checks(self):
+        return [tr.time_between_checks for tr in self.trackers]
+
+    @time_between_checks.setter
+    def time_between_checks(self, value):
+        for tr in self.trackers:
+            tr.time_between_checks = value
+
+    @property
+    def maximum_seconds_randomly_added(self):
+        return [tr.maximum_seconds_randomly_added for tr in self.trackers]
+
+    @maximum_seconds_randomly_added.setter
+    def maximum_seconds_randomly_added(self, value):
+        for tr in self.trackers:
+            tr.maximum_seconds_randomly_added = value
+
+    @property
+    def ip_hosts(self):
+        ip_hosts = {}
+        for tr in self.trackers:
+            for ip_host in tr.ip_hosts:
+                ip = IPElement(ip=ip_host._ip[0], mask=self.network.mask)
+                ip_hosts.update({ip: tr.ip_hosts[ip_host]})
+        return ip_hosts
+
+    @property
+    def mac_hosts(self):
+        mac_hosts = {}
+        for tr in self.trackers:
+            for mac_host in tr.mac_hosts:
+                mac_hosts.update({mac_host: tr.ip_hosts[mac_host]})
+        return mac_hosts
+
+    @property
+    def discoveries(self):
+        return [tr.discoveries for tr in self.trackers]
+
+    @discoveries.setter
+    def discoveries(self, value):
+        for tr in self.trackers:
+            tr.discoveries = value
+
+    @property
+    def arp(self):
+        return [tr.arp for tr in self.trackers]
+
+    @arp.setter
+    def arp(self, value):
+        for tr in self.trackers:
+            tr.arp = value
+
+    @coroutine
+    def keep_network_tracked(self, initial_sleep=False):
+        tasks = []
+        i = 0
+        for tr in self.trackers:
+            tasks.append(tr.keep_network_tracked(initial_sleep=i))
+            if initial_sleep:
+                i += 2
+        yield from asyncio.gather(*tasks)
+
+    @coroutine
+    def do_complete_network_scan(self):
+        tasks = []
+        for tr in self.trackers:
+            tasks.append(tr.do_complete_network_scan())
+        ups = yield from asyncio.gather(*tasks)
+        return sum(ups)
+
+# track.time_between_checks = datetime.timedelta(minutes=0, seconds=1); track.maximum_seconds_randomly_added = 1
+# track.ip_hosts[IPElement("192.168.2.45/23")].print_histories()
 # track.mac_hosts[MACElement("A4:5E:60:D2:8D:E5")].print_histories()
+# for tr in track.trackers: print(tr.network, tr.status)
+# print(track.time_between_checks)

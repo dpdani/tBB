@@ -27,7 +27,7 @@
         "level": "DEBUG",
         "class": "logging.handlers.SysLogHandler",
         "formatter": "syslog",
-        "address": {"ip": "localhost", "port": 1984},
+        "address": {"ip": "localhost", "port": 1985},
         "socktype": "ext://socket.SOCK_DGRAM",
         "facility": "ext://logging.handlers.SysLogHandler.LOG_DAEMON"
       },
@@ -49,14 +49,12 @@
     }
   },
   "tracker": {
-    "discoveries": {
-      "icmp": {"count": 2, "timeout": 1, "flood": false},
-      "arp": {"count": 2, "timeout": 1, "quit_on_first": true},
-      "syn": {"ports": "22", "timeout": 1}
-    },
-    "do_icmp": true,
-    "do_arp": true,
-    "do_syn": false,
+    "discoveries": [
+      {"type": "icmp", "count": 3, "timeout": 2, "flood": false, "enabled": true},
+      {"type": "syn", "ports": "22", "timeout": 2, "enabled": true}
+    ],
+    "hosts": 16,
+    "arp": {"count": 3, "timeout": 2, "quit_on_first": true},
     "enable_notifiers": true,
     "time_between_checks": {"minutes": 0, "seconds": 8},
     "maximum_seconds_randomly_added": 4

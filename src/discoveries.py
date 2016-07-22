@@ -38,6 +38,27 @@ def shell(command):
     return (yield from process.communicate())[0].decode('utf-8').splitlines()
 
 
+class PingedBroadcast(Exception):
+    def __init__(self, ip):
+        super().__init__("requested to ping broadcast '{}'.".format(ip))
+
+class ParsingException(Exception):
+    def __init__(self, ip, method, string):
+        super().__init__("while running {} on {}. Got: {}.".format(method, ip, string))
+
+class ICMPParsingException(ParsingException):
+    def __init__(self, ip, string):
+        super().__init__(ip, 'icmp', string)
+
+class ARPParsingException(ParsingException):
+    def __init__(self, ip, string):
+        super().__init__(ip, 'arp', string)
+
+class SYNParsingException(ParsingException):
+    def __init__(self, ip, string):
+        super().__init__(ip, 'syn', string)
+
+
 class DiscoveryMethod:
     """Base-abstract class for all discovery methods."""
 
@@ -77,11 +98,6 @@ class DiscoveryMethod:
         for ip in ips:
             results[ip] = yield from self.run(ip)
         return results
-
-
-class PingedBroadcast(Exception):
-    def __init__(self, ip):
-        super().__init__("requested to ping broadcast '{}'.".format(ip))
 
 
 class ICMPDiscovery(DiscoveryMethod):
@@ -126,8 +142,12 @@ class ICMPDiscovery(DiscoveryMethod):
         filtered_result = None
         for res in result:
             if res.find('broadcast') != -1:
-                raise PingedBroadcast(ip)
-            filtered_result = int(res.split(', ')[1].split(' ')[0])
+                # raise PingedBroadcast(ip)
+                return False
+            try:
+                filtered_result = int(res.split(', ')[1].split(' ')[0])
+            except:
+                raise ICMPParsingException(ip, res)
         logger.debug("Pinging IP '{}' resulted '{}'.".format(ip, filtered_result))
         if took >= self.count * 1.1:
             logger.warning("Ping to IP '{}' took {:.2f} seconds. Network congestion?", ip, took)
@@ -171,12 +191,19 @@ class ARPDiscovery(DiscoveryMethod):
             ip.ip[0]
         ))
         took = time.time() - start
-        up = int(result[-1].split(' ')[1])
+        try:
+            up = int(result[-1].split(' ')[1])
+        except ValueError:
+            # raise PingedBroadcast(ip)
+            return False, None
         host = None
         for line in result:
             line = line
             if line.find('reply') > -1:
-                host = line[line.find('[')+1:line.find(']')]
+                try:
+                    host = line[line.find('[')+1:line.find(']')]
+                except:
+                    raise ARPParsingException(ip, line)
         # e.g.:  ARPING 192.168.2.27 from 192.168.2.90 eth0
         #        Unicast reply from 192.168.2.27 [D4:BE:D9:49:D3:0C]  0.975ms
         #      host = ----------------------------^^^^^^^^^^^^^^^^^
@@ -222,7 +249,10 @@ class SYNDiscovery(DiscoveryMethod):
         ))
         result = result[0]
         took = time.time() - start
-        filtered_result = result[result.find(') ')+2:result.find(': ', 10)]
+        try:
+            filtered_result = result[result.find(') ')+2:result.find(': ', 10)]
+        except:
+            raise SYNParsingException(ip, result)
         # TODO: network congestion check
         if result.find("No route to host") > -1:
             filtered_result = 'timed out'

@@ -116,34 +116,36 @@ def read_configuration_file(path):
             )
         except KeyError: pass
         try:
-            config['tracker']['icmp'] = tracker.discoveries.ICMPDiscovery(
-                count = config['tracker']['discoveries']['icmp']['count'],
-                timeout = config['tracker']['discoveries']['icmp']['timeout'],
-                flood = config['tracker']['discoveries']['icmp']['flood'],
-                enabled = config['tracker']['do_icmp']
-            )
+            cached = config['tracker']['discoveries']
+            config['tracker']['discoveries'] = []
+            i = 0
+            for disc in cached:
+                if disc['type'] == 'icmp':
+                    config['tracker']['discoveries'].append(
+                        tracker.discoveries.ICMPDiscovery(
+                            count = cached[i]['count'],
+                            timeout = cached[i]['timeout'],
+                            flood = cached[i]['flood'],
+                            enabled = cached[i]['enabled']
+                        )
+                    )
+                elif disc['type'] == 'syn':
+                    config['tracker']['discoveries'].append(
+                        tracker.discoveries.SYNDiscovery(
+                            ports = cached[i]['ports'],
+                            timeout = cached[i]['timeout'],
+                            enabled = cached[i]['enabled']
+                        )
+                    )
+                i += 1
         except KeyError: pass
         try:
             config['tracker']['arp'] = tracker.discoveries.ARPDiscovery(
-                count = config['tracker']['discoveries']['arp']['count'],
-                timeout = config['tracker']['discoveries']['arp']['timeout'],
-                quit_on_first = config['tracker']['discoveries']['arp']['quit_on_first'],
-                enabled = config['tracker']['do_arp']
+                count = config['tracker']['arp']['count'],
+                timeout = config['tracker']['arp']['timeout'],
+                quit_on_first = config['tracker']['arp']['quit_on_first'],
+                enabled = True
             )
-        except KeyError: pass
-        try:
-            config['tracker']['syn'] = tracker.discoveries.SYNDiscovery(
-                ports = config['tracker']['discoveries']['syn']['ports'],
-                timeout = config['tracker']['discoveries']['syn']['timeout'],
-                enabled = config['tracker']['do_syn']
-            )
-        except KeyError: pass
-        try:
-            del config['tracker']['discoveries']
-            cached = dict(config['tracker'])
-            for key in cached:
-                if key.startswith('do_'):
-                    del config['tracker'][key]
         except KeyError: pass
     return config
 
@@ -245,16 +247,14 @@ def main(args):
     # print("{}/{} hosts up.".format(up_hosts, len(net)))
     logger.info("Monitoring network {}.".format(net))
     logger.info("No previous network scans found on record. Running initial check...")  # TODO: requires serialization
-    track = tracker.Tracker(net)
+    hosts = 16
+    try:
+        hosts = config['tracker']['hosts']
+    except KeyError: pass
+    track = tracker.TrackersHandler(net, hosts)
     configure_tracker(track, config)
-    enable_notifiers = track.enable_notifiers
+    enable_notifiers = track.enable_notifiers[0]
     track.enable_notifiers = False  # disabling notifiers for initial check
-    # tasks = []
-    # start = 1
-    # hosts = 16
-    # while start < len(net):
-    #     tasks.append(asyncio.async(track.do_partial_scan(start, hosts)))
-    #     start += hosts
     tasks = asyncio.async(track.do_complete_network_scan())
     start = datetime.datetime.now()
     try:
@@ -267,7 +267,7 @@ def main(args):
         logger.info("Initial check done. {}/{} hosts up. Took {}.".format(up, len(net), took))
         print("\nThe Big Brother is watching.\n")
         tasks = [
-            track.keep_network_tracked(initial_sleep=0)
+            track.keep_network_tracked(initial_sleep=True)
         ]
         if not silent:
             tasks.append(tiny_cli(globals(), locals()))
@@ -289,7 +289,10 @@ def user_quit(tasks):
     logger.warning("tBB close requested by user input (Ctrl-C).")
     tasks.cancel()
     loop.run_forever()
-    tasks.exception()
+    try:
+        tasks.exception()
+    except asyncio.CancelledError:
+        pass
 
 
 if __name__ == '__main__':
