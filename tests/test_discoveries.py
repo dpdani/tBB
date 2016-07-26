@@ -2,12 +2,12 @@ import unittest
 import sys
 import os
 
-path = os.path.abspath(os.path.join(os.getcwd(), '..'))
+path = os.path.abspath(os.path.join(os.getcwd(), '..', 'src'))
 if path not in sys.path:
     sys.path.append(path)
 
-from src.net_elements import IPElement, Network
-from src import discoveries
+from net_elements import IPElement, Network
+import discoveries
 
 
 def setUpModule():

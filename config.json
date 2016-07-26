@@ -1,5 +1,6 @@
 {
-  "networkIp": "192.168.2.0/23-2",
+  "networkIp": "192.168.2.0/23",
+  "least_record_update_seconds": 3600,
   "logging": {
     "version": 1,
     "disable_existing_loggers": false,
@@ -50,13 +51,14 @@
   },
   "tracker": {
     "discoveries": [
-      {"type": "icmp", "count": 3, "timeout": 2, "flood": false, "enabled": true},
-      {"type": "syn", "ports": "22", "timeout": 2, "enabled": true}
+      {"type": "icmp", "count": 1, "timeout": 4, "flood": true, "enabled": true},
+      {"type": "syn", "ports": "22", "timeout": 4, "enabled": true}
     ],
     "hosts": 16,
     "arp": {"count": 3, "timeout": 2, "quit_on_first": true},
     "enable_notifiers": true,
-    "time_between_checks": {"minutes": 0, "seconds": 8},
-    "maximum_seconds_randomly_added": 4
+    "time_between_checks": {"minutes": 0, "seconds": 2},
+    "maximum_seconds_randomly_added": 2,
+    "auto_ignore_broadcasts": true
   }
 }

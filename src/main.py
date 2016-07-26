@@ -16,8 +16,8 @@ import logging.handlers
 import json
 import asyncio
 import tracker
+import serialization
 from net_elements import *
-
 
 loop = asyncio.get_event_loop()
 
@@ -101,20 +101,22 @@ def read_configuration_file(path):
         try:
             config = json.loads(read)
         except (ValueError, ImportError):
-            logger.info("Found configuration file at {}, but is malformed.", path, exc_info=True)
+            logger.exception("Found configuration file at {}, but is malformed.", path, exc_info=True)
         else:
             logger.info("Found configuration file at {}.", path)
         try:
             config['logging']['handlers']['syslog']['address'] = \
                 (config['logging']['handlers']['syslog']['address']['ip'],
                  config['logging']['handlers']['syslog']['address']['port'])
-        except KeyError: pass
+        except KeyError:
+            logger.exception("Skipping syslog configuration: file malformed.")
         try:
             config['tracker']['time_between_checks'] = datetime.timedelta(
                 minutes = config['tracker']['time_between_checks']['minutes'],
                 seconds = config['tracker']['time_between_checks']['seconds'],
             )
-        except KeyError: pass
+        except KeyError:
+            logger.exception("Skipping tracker.time_between_checks configuration: file malformed.")
         try:
             cached = config['tracker']['discoveries']
             config['tracker']['discoveries'] = []
@@ -138,7 +140,8 @@ def read_configuration_file(path):
                         )
                     )
                 i += 1
-        except KeyError: pass
+        except KeyError:
+            logger.exception("Skipping tracker.discoveries configuration: file malformed.")
         try:
             config['tracker']['arp'] = tracker.discoveries.ARPDiscovery(
                 count = config['tracker']['arp']['count'],
@@ -146,13 +149,15 @@ def read_configuration_file(path):
                 quit_on_first = config['tracker']['arp']['quit_on_first'],
                 enabled = True
             )
-        except KeyError: pass
+        except KeyError:
+            logger.exception("Skipping tracker.arp configuration: file malformed.")
     return config
 
 
 @asyncio.coroutine
 def tiny_cli(globals, locals):
     import async_stdio
+    import traceback
     while True:
         inp = yield from async_stdio.async_input('$ ')
         if inp in ('q', 'exit', 'quit'):
@@ -161,7 +166,7 @@ def tiny_cli(globals, locals):
             exec(inp, globals, locals)
         except Exception as exc:
             print("ERROR.")
-            print(exc)
+            traceback.print_exc()
     logger.warning("tBB close requested by user input ({}).".format(inp))
     loop.stop()
 
@@ -178,6 +183,9 @@ def main(args):
     )
     configure_logging(config, silent)
     logger.warning(" === tBB started ===  args: {}".format(args))  # warnings are sent to syslog
+    if os.geteuid() != 0:
+        logger.critical("tBB requires root privileges to be run.")
+        return
     try:
         del args[args.index('--silent')]
     except: pass
@@ -224,62 +232,79 @@ def main(args):
         net = Network(netip)
     except ValueError:  # invalid network input
         print("Cannot start tBB: '{}' is not a valid network address.".format(netip))
-        logger.critical("tBB closed due to incorrect network address ({}).", netip)
+        logger.critical("tBB closed due to incorrect network address ({}).".format(netip))
         return
+    try:
+        least_record_update_seconds = config['least_record_update_seconds']
+    except KeyError:
+        least_record_update_seconds = 3600
     # print("Loading notifiers... ", end='')
     # load_notifiers()
     # print("{} notifiers found.".format(len(notifiers)))
     # print("Opening port for frontends... ", end='')
     # open_frontend_port()
     # print("port = {}".format(port))
-    # print("Opening database... ", end='')
-    # connect_to_database()
-    # print("database size = {}.".format(db_size))
-    # if not silent:
-    #     if db_empty:
-    #         print("First network map on record.")
-    #     else:
-    #         print("Loading network map on record... ", end='')
-    #         load_record()
-    #         print("last updated: {} ({} ago).".format(db_last_updated, db_last_updated_ago))
-    # print("Running initial scan... ", end='')
-    # initial_scan()
-    # print("{}/{} hosts up.".format(up_hosts, len(net)))
     logger.info("Monitoring network {}.".format(net))
-    logger.info("No previous network scans found on record. Running initial check...")  # TODO: requires serialization
-    hosts = 16
-    try:
-        hosts = config['tracker']['hosts']
-    except KeyError: pass
-    track = tracker.TrackersHandler(net, hosts)
+    loaded_from_record = False
+    if os.path.exists(serialization.path_for_network(net)):
+        logger.info("Found scan on record. Loading...")
+        ser = serialization.Serializer(network=net)
+        ser.load()
+        track = ser.track
+        loaded_from_record = True
+        logger.info("Last update on record: {}.".format(sorted(ser.sessions)[-1][1].strftime(default_time_format)))
+    else:
+        logger.info("No previous network scans found on record.")
+        hosts = 16
+        try:
+            hosts = config['tracker']['hosts']
+        except KeyError:
+            pass
+        track = tracker.TrackersHandler(net, hosts)
+        ser = serialization.Serializer(network=net, track=track)
+        track.serializer = ser
     configure_tracker(track, config)
-    enable_notifiers = track.enable_notifiers[0]
-    track.enable_notifiers = False  # disabling notifiers for initial check
-    tasks = asyncio.async(track.do_complete_network_scan())
+    if not silent:
+        track.force_notify = True  # do notify to screen
+    do_complete_scan = True
+    if loaded_from_record:
+        try:
+            if (datetime.datetime.now() - sorted(ser.sessions)[-1][1]).total_seconds() < least_record_update_seconds:
+                do_complete_scan = False
+        except IndexError:
+            print("indexerror")
+    tasks = None
+    if do_complete_scan:
+        tasks = asyncio.async(track.do_complete_network_scan())
     start = datetime.datetime.now()
     try:
-        up = loop.run_until_complete(tasks)
+        if do_complete_scan:
+            logger.info("Running complete network check...")
+            up = loop.run_until_complete(tasks)
+            loop.run_until_complete(ser.save())
     except KeyboardInterrupt:
         user_quit(tasks)
-    else:
-        took = datetime.datetime.now() - start
-        track.enable_notifiers = enable_notifiers
+        loop.close()
+        return
+    took = datetime.datetime.now() - start
+    track.force_notify = False
+    try:
         logger.info("Initial check done. {}/{} hosts up. Took {}.".format(up, len(net), took))
-        print("\nThe Big Brother is watching.\n")
-        tasks = [
-            track.keep_network_tracked(initial_sleep=True)
-        ]
-        if not silent:
-            tasks.append(tiny_cli(globals(), locals()))
-        tasks = asyncio.gather(*tasks)
-        try:
-            loop.run_until_complete(tasks)
-        except KeyboardInterrupt:
-            user_quit(tasks)
-        except RuntimeError:
-            pass  # loop stopped before Futures completed.
-        finally:
-            loop.close()
+    except NameError: pass  # complete_scan not run -> 'up' not defined
+    print("\nThe Big Brother is watching.\n")
+    tasks = [
+        track.keep_network_tracked(initial_sleep=True)
+    ]
+    if not silent:
+        tasks.append(tiny_cli(globals(), locals()))
+    tasks = asyncio.gather(*tasks)
+    try:
+        loop.run_until_complete(tasks)
+    except KeyboardInterrupt:
+        user_quit(tasks)
+        loop.close()
+    except RuntimeError:
+        pass  # loop stopped before Futures completed.
     finally:
         loop.close()
 
@@ -288,10 +313,15 @@ def user_quit(tasks):
     print("\n")
     logger.warning("tBB close requested by user input (Ctrl-C).")
     tasks.cancel()
-    loop.run_forever()
+    try:
+        loop.run_forever()
+    except KeyboardInterrupt:
+        pass
     try:
         tasks.exception()
     except asyncio.CancelledError:
+        pass
+    except asyncio.InvalidStateError:  # no exceptions
         pass
 
 

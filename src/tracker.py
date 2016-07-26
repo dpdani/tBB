@@ -35,10 +35,12 @@ class Tracker(object):
         self.arp = discoveries.DefaultARPDiscovery
         self.time_between_checks = datetime.timedelta(minutes=0, seconds=0)
         self.maximum_seconds_randomly_added = 0
-        self.enable_notifiers = True
         self._outer_status = 'initialized'  # supply information to front-ends
         self._status = 'initialized'        #
         self.ignore_networks_and_broadcasts = True
+        self.serializer = None
+        self.force_notify = False
+        self.auto_ignore_broadcasts = True
 
     @property
     def up_hosts(self):
@@ -93,9 +95,9 @@ class Tracker(object):
         """
         logger.debug("Scanning entire network: {}.".format(self.network))
         self.outer_status = "Scanning entire network: {}.".format(self.network)
+        ser = self.serializer  # disconnecting serializer for complete scan.
+        self.serializer = None
         up = 0
-        syn_enabled = self.discoveries[1].enabled
-        self.discoveries[1].enabled = False
         # tasks = []
         # start = 1
         # hosts = 16
@@ -114,7 +116,7 @@ class Tracker(object):
                     continue
             if (yield from self.do_single_scan(ip)):
                 up += 1
-        self.discoveries[1].enabled = syn_enabled
+        self.serializer = ser  # reconnecting serializer
         return up
 
     @coroutine
@@ -179,7 +181,12 @@ class Tracker(object):
         method = None
         is_up = False
         self.status = "scanning ip '{}' - running mac discovery.".format(ip)
-        mac = (yield from self.arp.run(ip))[1]
+        try:
+            mac = (yield from self.arp.run(ip))[1]
+        except discoveries.PingedBroadcast:
+            if self.auto_ignore_broadcasts:
+                logger.error("Found broadcast at {}. Ignoring IP from now on.".format(ip))
+                self.ignore.append(ip)
         for discovery in self.discoveries:
             if discovery.enabled:
                 self.status = "scanning ip '{}' - running {}.".format(ip, discovery.short_name)
@@ -187,6 +194,9 @@ class Tracker(object):
                 try:
                     is_up = yield from discovery.run(ip)
                 except discoveries.PingedBroadcast:
+                    if self.auto_ignore_broadcasts:
+                        logger.error("Found broadcast at {}. Ignoring IP from now on.".format(ip))
+                        self.ignore.append(ip)
                     return False
                 if is_up:
                     break
@@ -201,13 +211,13 @@ class Tracker(object):
                 mac = self.ip_hosts[ip].mac
                 mac_changed = self.mac_hosts[MACElement(mac)].update(ip, is_up)
             else:
-                mac_changed = False
+                mac_changed = (False, None)
         except KeyError:
             host = MACHost(MACElement(mac))
             mac_changed = host.update(ip, is_up)
             self.mac_hosts[MACElement(mac)] = host
-        if ip_changed or mac_changed:
-            self.fire_notifiers(ip, mac, method, is_up)
+        if ip_changed[0] or mac_changed[0] or self.force_notify:
+            yield from self.fire_notifiers(ip, mac, method, is_up, ip_changed[1], mac_changed[1])
         return is_up
 
     @coroutine
@@ -278,15 +288,28 @@ class Tracker(object):
                 ] = host._ip
         return priorities[max(priorities)]
 
-    def fire_notifiers(self, ip, mac, method, is_up):
-        logger.info("{}@{} changed status. method: {}, is_up: {}.".format(ip, mac, method, is_up))
-        if self.enable_notifiers:
-            print("FIRING NOTIFIERS.")
+    @coroutine
+    def fire_notifiers(self, ip, mac, method, is_up, ip_what, mac_what):
+        if ip_what is None:
+            ip_what = ''
+        if mac_what is None:
+            mac_what = ''
+        if ip_what is None and mac_what is None:
+            logger.error("IP {}@{} changed without reasoning.".format(ip.ip[0], mac))
+        what = "IP(" + ip_what + ") MAC(" + mac_what + ")"
+        if mac is None:
+            mac = 'mac-not-found'
+        logger.info("{}@{} changed {}. method: {}, is_up: {}.".format(ip.ip[0], mac, what, method, is_up))
+        if self.serializer is not None:
+            self.status = "saving changes."
+            yield from self.serializer.save()
 
 
 class TrackersHandler(object):
     def __init__(self, network, hosts=16):
         self.network = network
+        self.mac_hosts = {}  # MACElement: MACHost
+        self.hosts = hosts
         self.trackers = []
         start = 0
         while start < len(self.network):
@@ -302,17 +325,10 @@ class TrackersHandler(object):
             if sorted(tr.ip_hosts.keys())[-1].ip[0] == self.network.broadcast().ip[0]:
                 # since broadcasts ignoring is inhibited by default, manually ignore real broadcast
                 tr.ignore.append(sorted(tr.ip_hosts.keys())[-1])
+            self.mac_hosts.update(tr.mac_hosts)
+            tr.mac_hosts = self.mac_hosts  # using shared memory for MACHosts.
             self.trackers.append(tr)
             start += hosts
-
-    @property
-    def enable_notifiers(self):
-        return [tr.enable_notifiers for tr in self.trackers]
-
-    @enable_notifiers.setter
-    def enable_notifiers(self, value):
-        for tr in self.trackers:
-            tr.enable_notifiers = value
 
     @property
     def status(self):
@@ -351,6 +367,15 @@ class TrackersHandler(object):
             tr.maximum_seconds_randomly_added = value
 
     @property
+    def auto_ignore_broadcasts(self):
+        return [tr.auto_ignore_broadcasts for tr in self.trackers]
+
+    @auto_ignore_broadcasts.setter
+    def auto_ignore_broadcasts(self, value):
+        for tr in self.trackers:
+            tr.auto_ignore_broadcasts = value
+
+    @property
     def ip_hosts(self):
         ip_hosts = {}
         for tr in self.trackers:
@@ -358,14 +383,6 @@ class TrackersHandler(object):
                 ip = IPElement(ip=ip_host._ip[0], mask=self.network.mask)
                 ip_hosts.update({ip: tr.ip_hosts[ip_host]})
         return ip_hosts
-
-    @property
-    def mac_hosts(self):
-        mac_hosts = {}
-        for tr in self.trackers:
-            for mac_host in tr.mac_hosts:
-                mac_hosts.update({mac_host: tr.ip_hosts[mac_host]})
-        return mac_hosts
 
     @property
     def discoveries(self):
@@ -385,6 +402,30 @@ class TrackersHandler(object):
         for tr in self.trackers:
             tr.arp = value
 
+    @property
+    def serializer(self):
+        sers = []
+        for tr in self.trackers:
+            sers.append(tr.serializer)
+        return sers
+
+    @serializer.setter
+    def serializer(self, value):
+        for tr in self.trackers:
+            tr.serializer = value
+
+    @property
+    def force_notify(self):
+        notifies = []
+        for tr in self.trackers:
+            notifies.append(tr.force_notify)
+        return notifies
+
+    @force_notify.setter
+    def force_notify(self, value):
+        for tr in self.trackers:
+            tr.force_notify = value
+
     @coroutine
     def keep_network_tracked(self, initial_sleep=False):
         tasks = []
@@ -403,8 +444,11 @@ class TrackersHandler(object):
         ups = yield from asyncio.gather(*tasks)
         return sum(ups)
 
-# track.time_between_checks = datetime.timedelta(minutes=0, seconds=1); track.maximum_seconds_randomly_added = 1
-# track.ip_hosts[IPElement("192.168.2.45/23")].print_histories()
-# track.mac_hosts[MACElement("A4:5E:60:D2:8D:E5")].print_histories()
+# track.time_between_checks = datetime.timedelta(minutes=0, seconds=0); track.maximum_seconds_randomly_added = 0
+# track.ip_hosts[IPElement("192.168.2.142/23")].print_histories()
+# track.mac_hosts[MACElement("FC:3F:7C:5C:00:D0")].print_histories()
 # for tr in track.trackers: print(tr.network, tr.status)
+# for tr in track.trackers: print(tr.network, tr.discoveries[1].enabled)
 # print(track.time_between_checks)
+# print(track.trackers[0].discoveries[1].enabled)
+# print(track.ip_hosts[IPElement("192.168.2.100/")])

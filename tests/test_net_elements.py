@@ -2,11 +2,11 @@ import unittest
 import sys
 import os
 
-path = os.path.abspath(os.path.join(os.getcwd(), '..'))
+path = os.path.abspath(os.path.join(os.getcwd(), '..', 'src'))
 if path not in sys.path:
     sys.path.append(path)
 
-from src import net_elements
+import net_elements
 
 
 class IPElementTestCase(unittest.TestCase):

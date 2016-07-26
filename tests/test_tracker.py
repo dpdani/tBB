@@ -10,12 +10,12 @@ import os
 import asyncio
 from asyncio import coroutine
 
-path = os.path.abspath(os.path.join(os.getcwd(), '..'))
+path = os.path.abspath(os.path.join(os.getcwd(), '..', 'src'))
 if path not in sys.path:
     sys.path.append(path)
 
-from src.net_elements import *
-from src import tracker
+from net_elements import *
+import tracker
 
 
 class TrackerFaker(tracker.Tracker):

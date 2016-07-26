@@ -142,6 +142,9 @@ class IPElement(object):
             num += ip_part * 10**(3*i)
         return num
 
+    def as_string(self):
+        return '/'.join([self._ip[0], str(self.mask)])
+
     def __eq__(self, other):
         if type(other) == str:
             try:
@@ -289,6 +292,9 @@ class Network(IPElement):
     def __next__(self):
         return self.next()
 
+    def as_string(self):
+        return '-'.join([super().as_string(), str(len(self))])
+
     def next(self):
         if self.forced_length == -1:
             if self.__iter_index >= len(self)-1:  # remove broadcast
@@ -319,7 +325,8 @@ class IPHost(object):
         self.mac_history = {}
         self.is_up_history = {}
         self.discovery_history = {}
-        self.last_check = datetime.datetime.now() - datetime.timedelta(days=100)
+        self.last_check = datetime.datetime.fromtimestamp(0)
+        self.last_seen = datetime.datetime.fromtimestamp(0)
 
     @property
     def ip(self):
@@ -365,17 +372,29 @@ class IPHost(object):
 
     def update(self, mac, method, is_up):
         self.last_check = datetime.datetime.now()
+        if is_up:
+            self.last_seen = self.last_check
         changed = False
+        what = ''
         if mac != self.mac and mac is not None:
             self.add_to_mac_history(mac)
             changed = True
+            if what != '':
+                what += ' '
+            what += 'mac'
         if method != self.last_discovery_method and method is not None:
             self.add_to_discovery_history(method)
             changed = True
+            if what != '':
+                what += ' '
+            what += 'method'
         if is_up != self.is_up:
             self.add_to_is_up_history(is_up)
             changed = True
-        return changed
+            if what != '':
+                what += ' '
+            what += 'is_up'
+        return changed, what
 
     def print_histories(self):
         print("MAC HISTORY FOR IPHOST: {}".format(repr(self)))
@@ -407,7 +426,8 @@ class MACHost(object):
         self.mac = mac
         self.history = {}
         self.is_up_history = {}
-        self.last_update = datetime.datetime.now() - datetime.timedelta(days=100)
+        self.last_update = datetime.datetime.fromtimestamp(0)
+        self.last_seen = datetime.datetime.fromtimestamp(0)
 
     @property
     def ip(self):
@@ -437,18 +457,31 @@ class MACHost(object):
 
     def update(self, ip, is_up):
         self.last_update = datetime.datetime.now()
+        if is_up:
+            self.last_seen = self.last_update
         changed = False
+        what = ''
         if self.ip is not None:
             if ip not in self.ip:
                 self.add_to_history(ip)
                 changed = True
+                if what != '':
+                    what += ' '
+                what += 'ip1'
         else:
             self.add_to_history(ip)
             changed = True
+            if what != '':
+                what += ' '
+            what += 'ip'
         if is_up != self.is_up:
+            # print(is_up, self.is_up)
             self.add_to_is_up_history(is_up)
             changed = True
-        return changed
+            if what != '':
+                what += ' '
+            what += 'is_up'
+        return changed, what
 
     def print_histories(self):
         print("IP HISTORY FOR macHOST: {}".format(repr(self)))

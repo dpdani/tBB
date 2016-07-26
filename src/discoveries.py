@@ -142,15 +142,18 @@ class ICMPDiscovery(DiscoveryMethod):
         filtered_result = None
         for res in result:
             if res.find('broadcast') != -1:
-                # raise PingedBroadcast(ip)
-                return False
+                raise PingedBroadcast(ip)
             try:
                 filtered_result = int(res.split(', ')[1].split(' ')[0])
             except:
                 raise ICMPParsingException(ip, res)
         logger.debug("Pinging IP '{}' resulted '{}'.".format(ip, filtered_result))
-        if took >= self.count * 1.1:
-            logger.warning("Ping to IP '{}' took {:.2f} seconds. Network congestion?", ip, took)
+        if not self.flood:
+            if took >= self.count * 1.1 + 2:
+                logger.warning("Ping to IP '{}' took {:.2f} seconds. Network congestion?".format(ip, took))
+        else:
+            if took >= self.timeout + 0.5:
+                logger.warning("Ping to IP '{}' took {:.2f} seconds. Network congestion?".format(ip, took))
         return filtered_result != 0
 
 DefaultICMPDiscovery = ICMPDiscovery(count=2, timeout=1)
@@ -194,8 +197,7 @@ class ARPDiscovery(DiscoveryMethod):
         try:
             up = int(result[-1].split(' ')[1])
         except ValueError:
-            # raise PingedBroadcast(ip)
-            return False, None
+            raise PingedBroadcast(ip)
         host = None
         for line in result:
             line = line
@@ -211,8 +213,8 @@ class ARPDiscovery(DiscoveryMethod):
         #        Received 1 response(s)
         #      up = ------^
         logger.debug("ARPinging IP '{}' resulted '{}'.".format(ip, up != 0))
-        if took >= self.count * 1.1:
-            logger.warning("ARPing to IP '{}' took {:.2f} seconds. Network congestion?", ip, took)
+        if took >= self.count * 1.1 + 2:
+            logger.warning("ARPing to IP '{}' took {:.2f} seconds. Network congestion?".format(ip, took))
         return up != 0, host
 
 
@@ -249,6 +251,8 @@ class SYNDiscovery(DiscoveryMethod):
         ))
         result = result[0]
         took = time.time() - start
+        if result.find("No route to host.") > -1:
+            return False
         try:
             filtered_result = result[result.find(') ')+2:result.find(': ', 10)]
         except:
