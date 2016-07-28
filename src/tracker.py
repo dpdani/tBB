@@ -22,12 +22,13 @@ class Tracker(object):
         if not isinstance(network, Network):
             raise TypeError("expected argument network to be a Network instance.")
         self.network = network
+        self.mac_hosts = {}
         self.ip_hosts = {}
         for ip in self.network:
             self.ip_hosts[ip] = IPHost(ip)
         self.priorities = {}  # IP: priority
         self.ignore = []  # IP
-        self.mac_hosts = {}
+        self.ignore_mac = []
         self.discoveries = [
             discoveries.DefaultICMPDiscovery,
             discoveries.DefaultSYNDiscovery
@@ -184,9 +185,10 @@ class Tracker(object):
         try:
             mac = (yield from self.arp.run(ip))[1]
         except discoveries.PingedBroadcast:
-            if self.auto_ignore_broadcasts:
+            if self.auto_ignore_broadcasts and ip not in self.ignore:
                 logger.error("Found broadcast at {}. Ignoring IP from now on.".format(ip))
                 self.ignore.append(ip)
+            return False
         for discovery in self.discoveries:
             if discovery.enabled:
                 self.status = "scanning ip '{}' - running {}.".format(ip, discovery.short_name)
@@ -194,7 +196,7 @@ class Tracker(object):
                 try:
                     is_up = yield from discovery.run(ip)
                 except discoveries.PingedBroadcast:
-                    if self.auto_ignore_broadcasts:
+                    if self.auto_ignore_broadcasts and ip not in self.ignore:
                         logger.error("Found broadcast at {}. Ignoring IP from now on.".format(ip))
                         self.ignore.append(ip)
                     return False
@@ -204,18 +206,24 @@ class Tracker(object):
                     method = None
         self.status = "scanning ip '{}' - finishing.".format(ip)
         ip_changed = self.ip_hosts[ip].update(mac, method, is_up)
-        try:
-            if mac is not None:
-                mac_changed = self.mac_hosts[MACElement(mac)].update(ip, is_up)
-            elif self.ip_hosts[ip].mac is not None and mac is None:  # mac went down
-                mac = self.ip_hosts[ip].mac
-                mac_changed = self.mac_hosts[MACElement(mac)].update(ip, is_up)
+        if mac is not None:
+            if MACElement(mac) not in self.ignore_mac:
+                try:
+                    if mac is not None:
+                        mac_changed = self.mac_hosts[MACElement(mac)].update(ip, is_up)
+                    elif self.ip_hosts[ip].mac is not None and mac is None:  # mac went down
+                        mac = self.ip_hosts[ip].mac
+                        mac_changed = self.mac_hosts[MACElement(mac)].update(ip, is_up)
+                    else:
+                        mac_changed = (False, None)
+                except KeyError:
+                    host = MACHost(MACElement(mac))
+                    mac_changed = host.update(ip, is_up)
+                    self.mac_hosts[MACElement(mac)] = host
             else:
-                mac_changed = (False, None)
-        except KeyError:
-            host = MACHost(MACElement(mac))
-            mac_changed = host.update(ip, is_up)
-            self.mac_hosts[MACElement(mac)] = host
+                mac_changed = (False, '')
+        else:
+            mac_changed = (False, '')
         if ip_changed[0] or mac_changed[0] or self.force_notify:
             yield from self.fire_notifiers(ip, mac, method, is_up, ip_changed[1], mac_changed[1])
         return is_up
@@ -304,6 +312,61 @@ class Tracker(object):
             self.status = "saving changes."
             yield from self.serializer.save()
 
+    def changes(self, hosts, from_, to, json_compatible=False):
+        changes = {}
+        hosts_combined = list(self.ip_hosts.values())
+        for machost in self.mac_hosts.values():
+            hosts_combined.append(machost)
+        for host in hosts_combined:
+            if host in hosts:
+                if json_compatible:
+                    if isinstance(host, IPHost):
+                        host_name = str(host._ip.ip[0])
+                    elif isinstance(host, MACHost):
+                        host_name = str(host.mac.mac)
+                    else:
+                        host_name = str(host)
+                else:
+                    host_name = host
+                changes[host_name] = {}
+                for attr in dir(host):
+                    if attr.find("history") > -1:
+                        history = getattr(host, attr)
+                        try:
+                            iter(history)
+                        except TypeError:
+                            continue
+                        changes[host_name][attr] = {}
+                        for entry in history:
+                            if from_ <= entry <= to:
+                                if attr == 'history':  # MACHost.history is the only attribute called like this
+                                    if json_compatible:
+                                        changes[host_name][attr][str(entry.timestamp())] = []
+                                        for ip in history[entry]:
+                                            changes[host_name][attr][str(entry.timestamp())].append(ip.ip[0])
+                                    else:
+                                        changes[host_name][attr].update({entry: history[entry]})
+                                else:
+                                    if json_compatible:
+                                        changes[host_name][attr].update({str(entry.timestamp()): history[entry]})
+                                    else:
+                                        changes[host_name][attr].update({entry: history[entry]})
+        return changes
+
+    def ip_changes(self, hosts, from_, to, json_compatible=False):
+        hosts_ = []
+        for host in self.ip_hosts:
+            if host in hosts:
+                hosts_.append(host)
+        return self.changes(hosts_, from_, to, json_compatible)
+
+    def mac_changes(self, hosts, from_, to, json_compatible=False):
+        hosts_ = []
+        for host in self.mac_hosts:
+            if host in hosts:
+                hosts_.append(host)
+        return self.changes(hosts_, from_, to, json_compatible)
+
 
 class TrackersHandler(object):
     def __init__(self, network, hosts=16):
@@ -320,7 +383,9 @@ class TrackersHandler(object):
                 net.forced_length = len(self.network) - start - 1  # using forced_length, last ip would be next network
                 tr = Tracker(net)
             else:
-                tr = Tracker(Network(ip))
+                net = Network(ip)
+                net.forced_length = len(net)  # this way net's broadcast will be checked: not a real broadcast
+                tr = Tracker(net)
             tr.ignore_networks_and_broadcasts = False  # sub-networks broadcasts are not real broadcasts
             if sorted(tr.ip_hosts.keys())[-1].ip[0] == self.network.broadcast().ip[0]:
                 # since broadcasts ignoring is inhibited by default, manually ignore real broadcast
@@ -385,6 +450,35 @@ class TrackersHandler(object):
         return ip_hosts
 
     @property
+    def ignore(self):
+        ignore = []
+        for tr in self.trackers:
+            for i in tr.ignore:
+                if i not in ignore:
+                    ip = IPElement(ip=i._ip[0], mask=self.network.mask)
+                    ignore.append(ip)
+        return ignore
+
+    @ignore.setter
+    def ignore(self, value):
+        for tr in self.trackers:
+            tr.ignore = value
+
+    @property
+    def ignore_mac(self):
+        ignore = []
+        for tr in self.trackers:
+            for i in tr.ignore_mac:
+                if i not in ignore:
+                    ignore.append(i)
+        return ignore
+
+    @ignore_mac.setter
+    def ignore_mac(self, value):
+        for tr in self.trackers:
+            tr.ignore_mac = value
+
+    @property
     def discoveries(self):
         return [tr.discoveries for tr in self.trackers]
 
@@ -426,6 +520,18 @@ class TrackersHandler(object):
         for tr in self.trackers:
             tr.force_notify = value
 
+    def changes(self, hosts, from_, to, json_compatible=False):
+        for host in hosts:
+            if isinstance(host, IPHost):
+                host._ip.mask = self.trackers[0].network.mask
+        for tr in self.trackers:
+            ch = tr.changes(hosts, from_, to, json_compatible)
+            if len(ch) > 0:
+                return ch
+
+    def mac_changes(self, hosts, from_, to, json_compatible=False):
+        return self.trackers[0].mac_changes(hosts, from_, to, json_compatible)  # mac_hosts are shared between trackers
+
     @coroutine
     def keep_network_tracked(self, initial_sleep=False):
         tasks = []
@@ -452,3 +558,7 @@ class TrackersHandler(object):
 # print(track.time_between_checks)
 # print(track.trackers[0].discoveries[1].enabled)
 # print(track.ip_hosts[IPElement("192.168.2.100/")])
+# track.ignore_mac = [MACElement("00:1B:0D:59:51:C2")]
+# print(track.changes(hosts=[IPHost(IPElement("192.168.2.36/23"))], from_=datetime.datetime.fromtimestamp(0), to=datetime.datetime.now()))
+# GET /mac_host_changes/48:51:b7:2b:88:60/1.1.1-1.1.1/now/ciao/ HTTP/1.0
+# GET /ip_host_changes/192.168.2.44/1.1.1-1.1.1/now/ciao/ HTTP/1.0

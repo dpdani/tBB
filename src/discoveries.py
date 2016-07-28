@@ -127,15 +127,18 @@ class ICMPDiscovery(DiscoveryMethod):
         :return type: bool
         """
         start = time.time()
-        result = yield from shell("ping -c {} {} {} {} | grep 'received'".format(
-            self.count,
-            "-w {} -W {}".format(
-                self.timeout,
-                self.timeout,
-            ) if self.timeout else "",
-            "-f" if self.flood else "",
-            ip.ip[0]
-        ))
+        try:
+            result = yield from shell("ping -c {} {} {} {} | grep 'received'".format(
+                self.count,
+                "-w {} -W {}".format(
+                    self.timeout,
+                    self.timeout,
+                ) if self.timeout else "",
+                "-f" if self.flood else "",
+                ip.ip[0]
+            ))
+        except KeyboardInterrupt:
+            return False
         took = time.time() - start
         # e.g.: ping = "1 packets transmitted, 1 received, 0% packet loss, time 0ms"
         #       filtered_result = 1 -----------^
@@ -188,11 +191,15 @@ class ARPDiscovery(DiscoveryMethod):
         :return type: tuple(bool, str)
         """
         start = time.time()
-        result = yield from shell("arping -I eth0 -c {} {} {}".format(
-            self.count,
-            "-w {}".format(self.timeout) if self.timeout else "",
-            ip.ip[0]
-        ))
+        try:
+            result = yield from shell("arping -I eth0 -c {} {} {} {}".format(
+                self.count,
+                "-f" if self.quit_on_first else "",
+                "-w {}".format(self.timeout) if self.timeout else "",
+                ip.ip[0]
+            ))
+        except KeyboardInterrupt:
+            return (False, None)
         took = time.time() - start
         try:
             up = int(result[-1].split(' ')[1])
@@ -244,11 +251,14 @@ class SYNDiscovery(DiscoveryMethod):
         :return type: bool
         """
         start = time.time()
-        result = yield from shell("nc -zv -w {} {} {}".format(
-            self.timeout,
-            ip.ip[0],
-            self.ports
-        ))
+        try:
+            result = yield from shell("nc -zv -w {} {} {}".format(
+                self.timeout,
+                ip.ip[0],
+                self.ports
+            ))
+        except KeyboardInterrupt:
+            return False
         result = result[0]
         took = time.time() - start
         if result.find("No route to host.") > -1:

@@ -17,6 +17,7 @@ import json
 import asyncio
 import tracker
 import serialization
+import frontends
 from net_elements import *
 
 loop = asyncio.get_event_loop()
@@ -90,7 +91,18 @@ def configure_tracker(track, config):
     if config:
         if 'tracker' in config:
             for attr in config['tracker']:
-                setattr(track, attr, config['tracker'][attr])
+                if attr == "ignore":
+                    ignore_list = track.ignore
+                    for ignore in config['tracker']['ignore']:
+                        ignore_list.append(ignore)
+                    track.ignore = ignore_list
+                elif attr == "ignore_mac":
+                    ignore_list = track.ignore_mac
+                    for ignore in config['tracker']['ignore_mac']:
+                        ignore_list.append(ignore)
+                    track.ignore_mac = ignore_list
+                else:
+                    setattr(track, attr, config['tracker'][attr])
 
 
 def read_configuration_file(path):
@@ -101,9 +113,9 @@ def read_configuration_file(path):
         try:
             config = json.loads(read)
         except (ValueError, ImportError):
-            logger.exception("Found configuration file at {}, but is malformed.", path, exc_info=True)
+            logger.exception("Found configuration file at {}, but is malformed.".format(path, exc_info=True))
         else:
-            logger.info("Found configuration file at {}.", path)
+            logger.info("Found configuration file at {}.".format(path))
         try:
             config['logging']['handlers']['syslog']['address'] = \
                 (config['logging']['handlers']['syslog']['address']['ip'],
@@ -151,6 +163,20 @@ def read_configuration_file(path):
             )
         except KeyError:
             logger.exception("Skipping tracker.arp configuration: file malformed.")
+        try:
+            ignore_list = []
+            for ignore in config['tracker']['ignore']:
+                ignore_list.append(IPElement(ignore))
+            config['tracker']['ignore'] = ignore_list
+        except:
+            logger.exception("Skipping tracker.ignore configuration: file malformed.")
+        try:
+            ignore_list = []
+            for ignore in config['tracker']['ignore_mac']:
+                ignore_list.append(MACElement(ignore))
+            config['tracker']['ignore_mac'] = ignore_list
+        except:
+            logger.exception("Skipping tracker.ignore_mac configuration: file malformed.")
     return config
 
 
@@ -185,6 +211,14 @@ def main(args):
     logger.warning(" === tBB started ===  args: {}".format(args))  # warnings are sent to syslog
     if os.geteuid() != 0:
         logger.critical("tBB requires root privileges to be run.")
+        return
+    password_file_path = os.path.join(os.getcwd(), 'tBB_access_password')
+    if not os.path.exists(password_file_path):
+        logger.critical("couldn't find password file.")
+        return
+    password_file_mode = oct(os.stat(password_file_path).st_mode)[-3:]
+    if password_file_mode != '600':
+        logger.critical("password file has invalid permissions: {}.".format(password_file_mode))
         return
     try:
         del args[args.index('--silent')]
@@ -238,12 +272,6 @@ def main(args):
         least_record_update_seconds = config['least_record_update_seconds']
     except KeyError:
         least_record_update_seconds = 3600
-    # print("Loading notifiers... ", end='')
-    # load_notifiers()
-    # print("{} notifiers found.".format(len(notifiers)))
-    # print("Opening port for frontends... ", end='')
-    # open_frontend_port()
-    # print("port = {}".format(port))
     logger.info("Monitoring network {}.".format(net))
     loaded_from_record = False
     if os.path.exists(serialization.path_for_network(net)):
@@ -264,6 +292,17 @@ def main(args):
         ser = serialization.Serializer(network=net, track=track)
         track.serializer = ser
     configure_tracker(track, config)
+    with open(password_file_path, 'r') as f:
+        password = f.read().strip()
+    frontends_handler = frontends.FrontendsHandler(track, password, port=1984, loop=loop)
+    tasks = asyncio.async(frontends_handler.start())
+    try:
+        loop.run_until_complete(tasks)
+    except KeyboardInterrupt:
+        frontends_handler.close()
+        user_quit(tasks)
+        loop.close()
+        return
     if not silent:
         track.force_notify = True  # do notify to screen
     do_complete_scan = True
@@ -326,7 +365,10 @@ def user_quit(tasks):
 
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    try:
+        main(sys.argv[1:])
+    except KeyboardInterrupt:
+        logger.warning("tBB close requested by user input (Ctrl-C).")
     if loop.is_running():
         loop.stop()
     if not loop.is_closed():

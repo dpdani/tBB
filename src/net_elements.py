@@ -362,13 +362,13 @@ class IPHost(object):
             return None
 
     def add_to_mac_history(self, stuff):
-        self.mac_history[datetime.datetime.now()] = stuff
+        self.mac_history[self.last_check] = stuff
 
     def add_to_discovery_history(self, stuff):
-        self.discovery_history[datetime.datetime.now()] = stuff
+        self.discovery_history[self.last_check] = stuff
 
     def add_to_is_up_history(self, stuff):
-        self.is_up_history[datetime.datetime.now()] = stuff
+        self.is_up_history[self.last_check] = stuff
 
     def update(self, mac, method, is_up):
         self.last_check = datetime.datetime.now()
@@ -412,6 +412,9 @@ class IPHost(object):
             return False
         return self.ip == other.ip
 
+    def __hash__(self):
+        return self._ip.__hash__()
+
     def __repr__(self):
         if self.mac is not None:
             return "<{} {}/{}@{}>".format(self.__class__.__name__, self.ip[0], self._ip.mask, self.mac)
@@ -450,10 +453,10 @@ class MACHost(object):
     def add_to_history(self, stuff):
         if not isinstance(stuff, tuple):
             stuff = (stuff,)
-        self.history[datetime.datetime.now()] = stuff
+        self.history[self.last_update] = stuff
 
     def add_to_is_up_history(self, stuff):
-        self.is_up_history[datetime.datetime.now()] = stuff
+        self.is_up_history[self.last_update] = stuff
 
     def update(self, ip, is_up):
         self.last_update = datetime.datetime.now()
@@ -494,7 +497,10 @@ class MACHost(object):
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
             return False
-        return self.ip == other.ip
+        return self.mac == other.mac
+
+    def __hash__(self):
+        return self.mac.__hash__()
 
     def __repr__(self):
         if self.mac is not None:

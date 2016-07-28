@@ -50,6 +50,16 @@ class Serializer(object):
             )
         self.track = tracker.TrackersHandler(net, read['TRACKERS_HANDLER']['hosts'])
         self.track.serializer = self
+        ignore_list = self.track.ignore
+        for ignore in read['TRACKERS_HANDLER']['ignore']:
+            if IPElement(ignore) not in ignore_list:
+                ignore_list.append(IPElement(ignore))
+        self.track.ignore = ignore_list
+        ignore_list = self.track.ignore_mac
+        for ignore in read['TRACKERS_HANDLER']['ignore_mac']:
+            if MACElement(ignore) not in ignore_list:
+                ignore_list.append(MACElement(ignore))
+        self.track.ignore_mac = ignore_list
         for ip in read['IP_HOSTS']:
             host = self.track.ip_hosts[IPElement(ip)]
             host.last_check = datetime.datetime.fromtimestamp(read['IP_HOSTS'][ip]['last_check'])
@@ -95,16 +105,23 @@ class Serializer(object):
             to_save['SESSIONS'][session[0].timestamp()] = session[1].timestamp()
         to_save['SESSIONS'][start_datetime.timestamp()] = datetime.datetime.now().timestamp()
         to_save['TRACKERS_HANDLER']['hosts'] = self.track.hosts
+        to_save['TRACKERS_HANDLER']['ignore'] = []
+        to_save['TRACKERS_HANDLER']['ignore_mac'] = []
+        for ignore in self.track.ignore:
+            if ignore not in to_save['TRACKERS_HANDLER']['ignore']:
+                to_save['TRACKERS_HANDLER']['ignore'].append(ignore.as_string())
+        for ignore in self.track.ignore_mac:
+            if ignore not in to_save['TRACKERS_HANDLER']['ignore_mac']:
+                to_save['TRACKERS_HANDLER']['ignore_mac'].append(ignore.mac)
         for ip_host in self.track.ip_hosts:
             host = self.track.ip_hosts[ip_host]
             to_save['IP_HOSTS'][ip_host.as_string()] = {
                 'mac_history': {},
                 'is_up_history': {},
                 'discovery_history': {},
-                'last_check': None
+                'last_check': host.last_check.timestamp(),
+                'last_seen': host.last_seen.timestamp()
             }
-            to_save['IP_HOSTS'][ip_host.as_string()]['last_check'] = host.last_check.timestamp()
-            to_save['IP_HOSTS'][ip_host.as_string()]['last_seen'] = host.last_seen.timestamp()
             for history_name in ('mac', 'is_up', 'discovery'):
                 history_name += "_history"
                 history = getattr(host, history_name)
@@ -116,10 +133,9 @@ class Serializer(object):
             to_save['MAC_HOSTS'][mac_host.mac] = {
                 'history': {},
                 'is_up_history': {},
-                'last_update': None
+                'last_update': host.last_update.timestamp(),
+                'last_seen': host.last_seen.timestamp()
             }
-            to_save['MAC_HOSTS'][mac_host.mac]['last_update'] = host.last_update.timestamp()
-            to_save['MAC_HOSTS'][mac_host.mac]['last_seen'] = host.last_seen.timestamp()
             for entry in host.is_up_history:
                 encoded = str(entry.timestamp())
                 to_save['MAC_HOSTS'][MACElement(mac_host.mac)]['is_up_history'][encoded] = host.is_up_history[entry]

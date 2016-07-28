@@ -59,6 +59,8 @@
     "enable_notifiers": true,
     "time_between_checks": {"minutes": 0, "seconds": 2},
     "maximum_seconds_randomly_added": 2,
-    "auto_ignore_broadcasts": true
+    "auto_ignore_broadcasts": true,
+    "ignore": [],
+    "ignore_mac": ["00:1B:0D:59:51:C2"]
   }
 }
