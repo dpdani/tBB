@@ -67,6 +67,7 @@ class FrontendsHandler(object):
 
     def bind(self):
         self.app.router.add_route('GET', '/test/', self.test)
+        self.app.router.add_route('GET', '/stats/{password}/', self.stats)
         self.app.router.add_route('GET', '/ip_info/{addr}/{password}/', self.ip_info)
         self.app.router.add_route('GET', '/mac_info/{addr}/{password}/', self.mac_info)
         self.app.router.add_route('GET', '/status/{password}/', self.status)
@@ -80,6 +81,18 @@ class FrontendsHandler(object):
     @coroutine
     def test(self, request):
         return web.Response(body=b"Connectivity test.")
+
+    @coroutine
+    def stats(self, request):
+        self.check_request_input(request, [])
+        hosts_up = []
+        for host in self.tracker.ip_hosts:
+            hosts_up.append((host.as_string(), self.tracker.ip_hosts[host].mac))
+        return web.Response(body=json.dumps({
+            'network': self.tracker.network.as_string(),
+            'up_hosts': self.tracker.up_hosts,
+            'hosts_up': hosts_up,
+        }).encode('utf-8'))
 
     @coroutine
     def ip_info(self, request):
@@ -255,17 +268,24 @@ class FrontendsHandler(object):
         check = self.check_request_input(request, ['ip', 'from', 'to'])
         if check is not None:
             return check
-        as_ip = self.check_ip(request.match_info['ip'])
-        if not isinstance(as_ip, IPElement):
-            return as_ip
+        if request.match_info['ip'] == 'all':
+            as_ip = None
+        else:
+            as_ip = self.check_ip(request.match_info['ip'])
+            if not isinstance(as_ip, IPElement):
+                return as_ip
         from_ = self.check_datetime(request.match_info['from'])
         if not isinstance(from_, datetime.datetime):
             return from_
         to = self.check_datetime(request.match_info['to'])
         if not isinstance(from_, datetime.datetime):
             return from_
-        return web.Response(status=200, body= \
-            json.dumps(self.tracker.changes([IPHost(as_ip)], from_, to, json_compatible=True)).encode('utf-8')
+        if as_ip is None:
+            changes = yield from self.tracker.ip_changes([], from_, to, json_compatible=True)
+        else:
+            changes = yield from self.tracker.ip_changes([IPHost(as_ip)], from_, to, json_compatible=True)
+        return web.Response(status=200, body=
+            json.dumps(changes).encode('utf-8')
         )
 
     @coroutine
@@ -273,14 +293,19 @@ class FrontendsHandler(object):
         check = self.check_request_input(request, ['mac', 'from', 'to'])
         if check is not None:
             return check
+        if request.match_info['mac'] == 'all':
+            as_mac = None
         as_mac = self.check_mac(request.match_info['mac'])
         if not isinstance(as_mac, MACElement):
             return as_mac
         from_ = self.check_datetime(request.match_info['from'])
         to = self.check_datetime(request.match_info['to'])
-        print(request.match_info['mac'], as_mac)
+        if as_mac is None:
+            changes = yield from self.tracker.changes([], from_, to, json_compatible=True)  ### !!! also do this in self.ip_host_changes
+        else:
+            changes = yield from self.tracker.changes([MACHost(as_mac)], from_, to, json_compatible=True)
         return web.Response(status=200, body= \
-            json.dumps(self.tracker.changes([MACHost(as_mac)], from_, to, json_compatible=True)).encode('utf-8')
+            json.dumps(changes).encode('utf-8')
         )
 
     def check_request_input(self, input, expected, password=True):

@@ -312,13 +312,14 @@ class Tracker(object):
             self.status = "saving changes."
             yield from self.serializer.save()
 
+    @coroutine
     def changes(self, hosts, from_, to, json_compatible=False):
         changes = {}
         hosts_combined = list(self.ip_hosts.values())
         for machost in self.mac_hosts.values():
             hosts_combined.append(machost)
         for host in hosts_combined:
-            if host in hosts:
+            if host in hosts or len(hosts) == 0:
                 if json_compatible:
                     if isinstance(host, IPHost):
                         host_name = str(host._ip.ip[0])
@@ -351,21 +352,35 @@ class Tracker(object):
                                         changes[host_name][attr].update({str(entry.timestamp()): history[entry]})
                                     else:
                                         changes[host_name][attr].update({entry: history[entry]})
+                            yield
         return changes
 
+    @coroutine
     def ip_changes(self, hosts, from_, to, json_compatible=False):
         hosts_ = []
-        for host in self.ip_hosts:
-            if host in hosts:
-                hosts_.append(host)
-        return self.changes(hosts_, from_, to, json_compatible)
+        if len(hosts) == 0:
+            hosts_ = self.ip_hosts.values()
+        else:
+            for host in self.ip_hosts.values():
+                if host in hosts:
+                    hosts_.append(host)
+                    yield
+        return (yield from self.changes(hosts_, from_, to, json_compatible))
 
+    @coroutine
     def mac_changes(self, hosts, from_, to, json_compatible=False):
         hosts_ = []
-        for host in self.mac_hosts:
-            if host in hosts:
-                hosts_.append(host)
-        return self.changes(hosts_, from_, to, json_compatible)
+        if len(hosts) == 0:
+            hosts_ = self.mac_hosts.values()
+        else:
+            for host in self.mac_hosts.values():
+                if host in hosts:
+                    hosts_.append(host)
+                    yield
+        return (yield from self.changes(hosts_, from_, to, json_compatible))
+
+    def __repr__(self):
+        return "<{} monitoring {}>".format(self.__class__.__name__, self.network)
 
 
 class TrackersHandler(object):
@@ -403,6 +418,13 @@ class TrackersHandler(object):
     def status(self, value):
         for tr in self.trackers:
             tr.status = value
+
+    @property
+    def up_hosts(self):
+        up = 0
+        for tr in self.trackers:
+            up += tr.up_hosts
+        return up
 
     @property
     def outer_status(self):
@@ -520,17 +542,40 @@ class TrackersHandler(object):
         for tr in self.trackers:
             tr.force_notify = value
 
+    @coroutine
     def changes(self, hosts, from_, to, json_compatible=False):
         for host in hosts:
             if isinstance(host, IPHost):
                 host._ip.mask = self.trackers[0].network.mask
+                yield
         for tr in self.trackers:
-            ch = tr.changes(hosts, from_, to, json_compatible)
+            ch = yield from tr.changes(hosts, from_, to, json_compatible)
             if len(ch) > 0:
                 return ch
 
+    @coroutine
+    def ip_changes(self, hosts, from_, to, json_compatible=False):
+        for host in hosts:
+            host._ip.mask = self.trackers[0].network.mask
+            yield
+        changes = {}
+        if hosts:
+            for tr in self.trackers:
+                for host in hosts:
+                    if host in tr.ip_hosts.values():
+                        # print(tr, (yield from tr.ip_changes(hosts, from_, to, json_compatible)))
+                        ch = yield from tr.ip_changes(hosts, from_, to, json_compatible)
+                        changes.update(ch)
+        else:
+            for tr in self.trackers:
+                ch = yield from tr.ip_changes(hosts, from_, to, json_compatible)
+                changes.update(ch)
+        return changes
+
+    @coroutine
     def mac_changes(self, hosts, from_, to, json_compatible=False):
-        return self.trackers[0].mac_changes(hosts, from_, to, json_compatible)  # mac_hosts are shared between trackers
+        # mac_hosts are shared between trackers
+        return (yield from self.trackers[0].mac_changes(hosts, from_, to, json_compatible))
 
     @coroutine
     def keep_network_tracked(self, initial_sleep=False):
@@ -551,7 +596,7 @@ class TrackersHandler(object):
         return sum(ups)
 
 # track.time_between_checks = datetime.timedelta(minutes=0, seconds=0); track.maximum_seconds_randomly_added = 0
-# track.ip_hosts[IPElement("192.168.2.142/23")].print_histories()
+# track.ip_hosts[IPElement("192.168.11.244/24")].print_histories()
 # track.mac_hosts[MACElement("FC:3F:7C:5C:00:D0")].print_histories()
 # for tr in track.trackers: print(tr.network, tr.status)
 # for tr in track.trackers: print(tr.network, tr.discoveries[1].enabled)
