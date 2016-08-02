@@ -74,6 +74,8 @@ class FrontendsHandler(object):
         self.app.router.add_route('GET', '/settings/get/{what}/{password}/', self.settings_get)
         self.app.router.add_route('GET', '/settings/set/{what}/{value}/{password}/', self.settings_set)
         self.app.router.add_route('GET', '/ignore/{method}/{ip}/{password}/', self.ignore)
+        self.app.router.add_route('GET', '/is_ignored/{ip}/{password}/', self.is_ignored)
+        self.app.router.add_route('GET', '/is_mac_ignored/{mac}/{password}/', self.is_mac_ignored)
         self.app.router.add_route('GET', '/set_priority/{ip}/{value}/{password}/', self.set_priority)
         self.app.router.add_route('GET', '/ip_host_changes/{ip}/{from}/{to}/{password}/', self.ip_host_changes)
         self.app.router.add_route('GET', '/mac_host_changes/{mac}/{from}/{to}/{password}/', self.mac_host_changes)
@@ -235,6 +237,8 @@ class FrontendsHandler(object):
         if check is not None:
             return check
         as_ip = self.check_ip(request.match_info['ip'])
+        if as_ip is not None:
+            return as_ip
         method = request.match_info['method']
         if method == 'add':
             _ignore_list = self.tracker.ignore
@@ -254,6 +258,32 @@ class FrontendsHandler(object):
             return web.Response(status=200)
         else:
             return web.Response(status=406, body=b"method invalid.")
+
+    @coroutine
+    def is_ignored(self, request):
+        check = self.check_request_input(request, ['ip'])
+        if check is not None:
+            return check
+        as_ip = self.check_ip(request.match_info['ip'])
+        if isinstance(as_ip, web.Response):
+            return as_ip
+        is_ignored = {as_ip.ip[0]: as_ip in self.tracker.ignore}
+        return web.Response(status=200, body=
+            json.dumps(is_ignored).encode('utf-8')
+        )
+
+    @coroutine
+    def is_mac_ignored(self, request):
+        check = self.check_request_input(request, ['mac'])
+        if check is not None:
+            return check
+        as_mac = self.check_mac(request.match_info['mac'], check_in_tracker=False)
+        if isinstance(as_mac, web.Response):
+            return as_mac
+        is_ignored = {as_mac.mac: as_mac in self.tracker.ignore_mac}
+        return web.Response(status=200, body=
+            json.dumps(is_ignored).encode('utf-8')
+        )
 
     @coroutine
     def set_priority(self, request):
@@ -323,7 +353,7 @@ class FrontendsHandler(object):
                 return web.Response(status=400, body="{} not set.".format(exp).encode('utf-8'))  # BadRequest
         if password:
             if input.match_info['password'] != self.password:
-                logger.error("somebody tried to access tBB with wrong password. Got: '{}' while password is '{}'".format(
+                logger.error("somebody tried to access tBB with wrong password. Got: '{}' while password is '{}'.".format(
                     input.match_info['password'], self.password
                 ))
                 return web.Response(status=401, body=input.match_info['password'].encode('utf-8'))  # Unauthorized
