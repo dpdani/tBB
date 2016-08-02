@@ -141,6 +141,8 @@ class FrontendsHandler(object):
             'mac': as_mac.mac,
             'last_update': host.last_update.timestamp(),
             'last_seen': host.last_seen.timestamp(),
+            'ip': host.ip[0].ip[0],
+            'is_up': host.is_up,
             'history': {},
             'is_up_history': {},
         }
@@ -151,7 +153,7 @@ class FrontendsHandler(object):
             encoded = str(entry.timestamp())
             encoded_ips = []
             for ip in host.history[entry]:
-                encoded_ips.append(ip.as_string())
+                encoded_ips.append(ip.ip[0])
             info['history'][encoded] = encoded_ips
         return web.Response(
             body=json.dumps(info).encode('utf-8'))

@@ -37,6 +37,7 @@ class Serializer(object):
         self.out_sort_keys = out_sort_keys
         self.track = track
         self.sessions = sessions
+        self.last_save = datetime.datetime.fromtimestamp(0)
 
     def load(self):
         logger.debug("Loading scan from file {}.".format(self.path))
@@ -92,6 +93,8 @@ class Serializer(object):
     @asyncio.coroutine
     def save(self):
         yield from asyncio.get_event_loop().run_in_executor(ProcessPoolExecutor(max_workers=3), self._save)
+        # self._save already sets self.last_save, but the executor prevents the change from being storedx
+        self.last_save = datetime.datetime.now()
 
     def _save(self):
         logger.debug("Saving scan to file {}.".format(self.path))
@@ -147,3 +150,12 @@ class Serializer(object):
                 to_save['MAC_HOSTS'][MACElement(mac_host.mac)]['history'][encoded] = encoded_ips
         with open(self.path, 'w') as f:
             json.dump(to_save, f, indent=self.out_indent, sort_keys=self.out_sort_keys)
+        self.last_save = datetime.datetime.now()
+
+    @asyncio.coroutine
+    def keep_saving(self, frequency):
+        while asyncio.get_event_loop().is_running():
+            if (datetime.datetime.now() - self.last_save).total_seconds() >= frequency:
+                yield from self.save()
+                logger.info("Automatic saving.")
+            yield from asyncio.sleep(10)

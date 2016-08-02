@@ -332,7 +332,8 @@ def main(args):
     except NameError: pass  # complete_scan not run -> 'up' not defined
     print("\nThe Big Brother is watching.\n")
     tasks = [
-        track.keep_network_tracked(initial_sleep=True)
+        track.keep_network_tracked(initial_sleep=True),
+        ser.keep_saving(frequency=600)  # every 10 minutes
     ]
     if not silent:
         tasks.append(tiny_cli(globals(), locals()))
