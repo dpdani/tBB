@@ -105,6 +105,9 @@ class FrontendsHandler(object):
         host = self.tracker.ip_hosts[as_ip]
         info = {
             'ip': as_ip.as_string(),
+            'is_up': host.is_up,
+            'mac': host.mac,
+            'method': host.last_discovery_method,
             'last_check': host.last_check.timestamp(),
             'last_seen': host.last_seen.timestamp(),
             'mac_history': {},
