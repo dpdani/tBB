@@ -472,6 +472,18 @@ class TrackersHandler(object):
         return ip_hosts
 
     @property
+    def priorities(self):
+        priorities = {}
+        for tr in self.trackers:
+            priorities.update(tr.priorities)
+        return priorities
+
+    @priorities.setter
+    def priorities(self, value):
+        for tr in self.trackers:
+            tr.priorities = value
+
+    @property
     def ignore(self):
         ignore = []
         for tr in self.trackers:

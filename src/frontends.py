@@ -77,6 +77,7 @@ class FrontendsHandler(object):
         self.app.router.add_route('GET', '/is_ignored/{ip}/{password}/', self.is_ignored)
         self.app.router.add_route('GET', '/is_mac_ignored/{mac}/{password}/', self.is_mac_ignored)
         self.app.router.add_route('GET', '/set_priority/{ip}/{value}/{password}/', self.set_priority)
+        self.app.router.add_route('GET', '/get_priority/{ip}/{password}/', self.get_priority)
         self.app.router.add_route('GET', '/ip_host_changes/{ip}/{from}/{to}/{password}/', self.ip_host_changes)
         self.app.router.add_route('GET', '/mac_host_changes/{mac}/{from}/{to}/{password}/', self.mac_host_changes)
 
@@ -236,10 +237,15 @@ class FrontendsHandler(object):
         check = self.check_request_input(request, ['method', 'ip'])
         if check is not None:
             return check
-        as_ip = self.check_ip(request.match_info['ip'])
-        if as_ip is not None:
+        as_ip = self.check_ip(request.match_info['ip'], check_in_tracker=False)
+        if not isinstance(as_ip, IPElement):
             return as_ip
         method = request.match_info['method']
+        if method == 'toggle':
+            if as_ip in self.tracker.ignore:
+                method = 'remove'
+            else:
+                method = 'add'
         if method == 'add':
             _ignore_list = self.tracker.ignore
             _ignore_list.append(as_ip)
@@ -290,6 +296,9 @@ class FrontendsHandler(object):
         check = self.check_request_input(request, ['ip', 'value'])
         if check is not None:
             return check
+        as_ip = self.check_ip(request.match_info['ip'])
+        if not isinstance(as_ip, IPElement):
+            return as_ip
         value = request.match_info['value']
         try:
             value = int(value)
@@ -297,6 +306,22 @@ class FrontendsHandler(object):
             return web.Response(status=406, body=b"value is invalid.")
         self.tracker.priorities[as_ip] = value
         return web.Response(status=200)
+
+    @coroutine
+    def get_priority(self, request):
+        check = self.check_request_input(request, ['ip'])
+        if check is not None:
+            return check
+        as_ip = self.check_ip(request.match_info['ip'])
+        if not isinstance(as_ip, IPElement):
+            return as_ip
+        try:
+            priority = {as_ip.ip[0]: self.tracker.priorities[as_ip]}
+        except KeyError:
+            priority = {as_ip.ip[0]: 0}
+        return web.Response(status=200, body=
+            json.dumps(priority).encode('utf-8')
+        )
 
     @coroutine
     def ip_host_changes(self, request):
@@ -330,9 +355,10 @@ class FrontendsHandler(object):
             return check
         if request.match_info['mac'] == 'all':
             as_mac = None
-        as_mac = self.check_mac(request.match_info['mac'])
-        if not isinstance(as_mac, MACElement):
-            return as_mac
+        else:
+            as_mac = self.check_mac(request.match_info['mac'])
+            if not isinstance(as_mac, MACElement):
+                return as_mac
         from_ = self.check_datetime(request.match_info['from'])
         to = self.check_datetime(request.match_info['to'])
         if as_mac is None:
