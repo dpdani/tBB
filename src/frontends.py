@@ -74,6 +74,7 @@ class FrontendsHandler(object):
         self.app.router.add_route('GET', '/settings/get/{what}/{password}/', self.settings_get)
         self.app.router.add_route('GET', '/settings/set/{what}/{value}/{password}/', self.settings_set)
         self.app.router.add_route('GET', '/ignore/{method}/{ip}/{password}/', self.ignore)
+        self.app.router.add_route('GET', '/ignore_mac/{method}/{mac}/{password}/', self.ignore_mac)
         self.app.router.add_route('GET', '/is_ignored/{ip}/{password}/', self.is_ignored)
         self.app.router.add_route('GET', '/is_mac_ignored/{mac}/{password}/', self.is_mac_ignored)
         self.app.router.add_route('GET', '/set_priority/{ip}/{value}/{password}/', self.set_priority)
@@ -261,6 +262,39 @@ class FrontendsHandler(object):
                 if elem != as_ip and elem not in ignore_list:
                     ignore_list.append(elem)
             self.tracker.ignore = ignore_list
+            return web.Response(status=200)
+        else:
+            return web.Response(status=406, body=b"method invalid.")
+
+    @coroutine
+    def ignore_mac(self, request):
+        check = self.check_request_input(request, ['method', 'mac'])
+        if check is not None:
+            return check
+        as_mac = self.check_mac(request.match_info['mac'], check_in_tracker=False)
+        if not isinstance(as_mac, MACElement):
+            return as_mac
+        method = request.match_info['method']
+        if method == 'toggle':
+            if as_mac in self.tracker.ignore_mac:
+                method = 'remove'
+            else:
+                method = 'add'
+        if method == 'add':
+            _ignore_list = self.tracker.ignore_mac
+            _ignore_list.append(as_mac)
+            ignore_list = []
+            for elem in _ignore_list:
+                if elem not in ignore_list:
+                    ignore_list.append(elem)
+            self.tracker.ignore_mac = ignore_list
+            return web.Response(status=200)
+        elif method == 'remove':
+            ignore_list = []
+            for elem in self.tracker.ignore_mac:
+                if elem != as_mac and elem not in ignore_list:
+                    ignore_list.append(elem)
+            self.tracker.ignore_mac = ignore_list
             return web.Response(status=200)
         else:
             return web.Response(status=406, body=b"method invalid.")
