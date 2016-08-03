@@ -304,7 +304,9 @@ class FrontendsHandler(object):
             value = int(value)
         except ValueError:
             return web.Response(status=406, body=b"value is invalid.")
-        self.tracker.priorities[as_ip] = value
+        priorities = self.tracker.priorities
+        priorities[as_ip] = value
+        self.tracker.priorities = priorities
         return web.Response(status=200)
 
     @coroutine
