@@ -81,6 +81,8 @@ class FrontendsHandler(object):
         self.app.router.add_route('GET', '/get_priority/{ip}/{password}/', self.get_priority)
         self.app.router.add_route('GET', '/ip_host_changes/{ip}/{from}/{to}/{password}/', self.ip_host_changes)
         self.app.router.add_route('GET', '/mac_host_changes/{mac}/{from}/{to}/{password}/', self.mac_host_changes)
+        self.app.router.add_route('GET', '/up_ip_hosts/{password}/', self.up_ip_hosts)
+        self.app.router.add_route('GET', '/up_mac_hosts/{password}/', self.up_mac_hosts)
 
     @coroutine
     def test(self, request):
@@ -403,6 +405,32 @@ class FrontendsHandler(object):
             changes = yield from self.tracker.changes([MACHost(as_mac)], from_, to, json_compatible=True)
         return web.Response(status=200, body= \
             json.dumps(changes).encode('utf-8')
+        )
+
+    @coroutine
+    def up_ip_hosts(self, request):
+        check = self.check_request_input(request, [])
+        if check is not None:
+            return check
+        up_hosts = []
+        for host in (yield from self.tracker.up_ip_hosts):
+            up_hosts.append(host.ip[0])
+            yield
+        return web.Response(status=200, body= \
+            json.dumps(up_hosts).encode('utf-8')
+        )
+
+    @coroutine
+    def up_mac_hosts(self, request):
+        check = self.check_request_input(request, [])
+        if check is not None:
+            return check
+        up_hosts = []
+        for host in (yield from self.tracker.up_mac_hosts):
+            up_hosts.append(host.mac)
+            yield
+        return web.Response(status=200, body= \
+            json.dumps(up_hosts).encode('utf-8')
         )
 
     def check_request_input(self, input, expected, password=True):

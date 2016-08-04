@@ -52,6 +52,22 @@ class Tracker(object):
         return up
 
     @property
+    def up_ip_hosts(self):
+        up_ip_hosts = {}
+        for host in self.ip_hosts:
+            if self.ip_hosts[host].is_up:
+                up_ip_hosts[host] = self.ip_hosts[host]
+        return up_ip_hosts
+
+    @property
+    def up_mac_hosts(self):
+        up_mac_hosts = {}
+        for host in self.mac_hosts:
+            if self.mac_hosts[host].is_up:
+                up_mac_hosts[host] = self.mac_hosts[host]
+        return up_mac_hosts
+
+    @property
     def status(self):
         """Used to supply information to front-ends."""
         return self._status
@@ -425,6 +441,26 @@ class TrackersHandler(object):
         for tr in self.trackers:
             up += tr.up_hosts
         return up
+
+    @property
+    @coroutine
+    def up_ip_hosts(self):
+        up_ip_hosts = {}
+        for host in self.ip_hosts:
+            if self.ip_hosts[host].is_up:
+                up_ip_hosts[host] = self.ip_hosts[host]
+            yield
+        return up_ip_hosts
+
+    @property
+    @coroutine
+    def up_mac_hosts(self):
+        up_mac_hosts = {}
+        for host in self.mac_hosts:
+            if self.mac_hosts[host].is_up:
+                up_mac_hosts[host] = self.mac_hosts[host]
+            yield
+        return up_mac_hosts
 
     @property
     def outer_status(self):
