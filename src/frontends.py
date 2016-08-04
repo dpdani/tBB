@@ -76,6 +76,8 @@ class FrontendsHandler(object):
         self.app.router.add_route('GET', '/ignore/{method}/{ip}/{password}/', self.ignore)
         self.app.router.add_route('GET', '/ignore_mac/{method}/{mac}/{password}/', self.ignore_mac)
         self.app.router.add_route('GET', '/is_ignored/{ip}/{password}/', self.is_ignored)
+        self.app.router.add_route('GET', '/ignored_ips/{password}/', self.ignored_ips)
+        self.app.router.add_route('GET', '/ignored_macs/{password}/', self.ignored_macs)
         self.app.router.add_route('GET', '/is_mac_ignored/{mac}/{password}/', self.is_mac_ignored)
         self.app.router.add_route('GET', '/set_priority/{ip}/{value}/{password}/', self.set_priority)
         self.app.router.add_route('GET', '/get_priority/{ip}/{password}/', self.get_priority)
@@ -326,6 +328,26 @@ class FrontendsHandler(object):
         is_ignored = {as_mac.mac: as_mac in self.tracker.ignore_mac}
         return web.Response(status=200, body=
             json.dumps(is_ignored).encode('utf-8')
+        )
+
+    @coroutine
+    def ignored_ips(self, request):
+        check = self.check_request_input(request, [])
+        if check is not None:
+            return check
+        ignored = self.tracker.ignore
+        return web.Response(status=200, body=
+            json.dumps(ignored).encode('utf-8')
+        )
+
+    @coroutine
+    def ignored_macs(self, request):
+        check = self.check_request_input(request, [])
+        if check is not None:
+            return check
+        ignored = self.tracker.ignore_mac
+        return web.Response(status=200, body=
+            json.dumps(ignored).encode('utf-8')
         )
 
     @coroutine
