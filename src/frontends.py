@@ -183,7 +183,8 @@ class FrontendsHandler(object):
         if check is not None:
             return check
         settings = {
-            'time_between_checks': [t.total_seconds() for t in self.tracker.time_between_checks],
+            'time_between_checks': [':'.join([str(t.seconds // 60), str(t.seconds - t.seconds//60*60)])
+                                    for t in self.tracker.time_between_checks],
             'maximum_seconds_randomly_added': self.tracker.maximum_seconds_randomly_added,
             'auto_ignore_broadcasts': self.tracker.auto_ignore_broadcasts,
         }
