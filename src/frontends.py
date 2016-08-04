@@ -335,7 +335,11 @@ class FrontendsHandler(object):
         check = self.check_request_input(request, [])
         if check is not None:
             return check
-        ignored = self.tracker.ignore
+        ignored = []
+        for host in self.tracker.ignore:
+            ignored.append(
+                host.ip[0]
+            )
         return web.Response(status=200, body=
             json.dumps(ignored).encode('utf-8')
         )
@@ -345,7 +349,11 @@ class FrontendsHandler(object):
         check = self.check_request_input(request, [])
         if check is not None:
             return check
-        ignored = self.tracker.ignore_mac
+        ignored = []
+        for host in self.tracker.ignore_mac:
+            ignored.append(
+                host.mac
+            )
         return web.Response(status=200, body=
             json.dumps(ignored).encode('utf-8')
         )
