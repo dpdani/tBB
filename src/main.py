@@ -73,12 +73,18 @@ default_logging_config = {
 }
 
 
-def configure_logging(config_file, silent):
+def configure_logging(config_file, silent, socket_port):
     if config_file:
         if 'logging' in config_file:
             try:
                 if silent:
                     config_file['logging']['handlers']['console']['level'] = 60
+                try:
+                    if config_file['logging']['handlers']['syslog']['address'][1] == '{frontends_socket_port}':
+                        config_file['logging']['handlers']['syslog']['address'] = \
+                            (config_file['logging']['handlers']['syslog']['address'][0], socket_port)
+                except KeyError:
+                    logger.error("Error while reading syslog configuration. Got:", exc_info=True)
                 logging.config.dictConfig(config_file['logging'])
             except Exception:
                 logger.warning("Couldn't use config file for logging.", exc_info=True)
@@ -207,8 +213,29 @@ def main(args):
     config = read_configuration_file(
         os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config.json"))
     )
-    configure_logging(config, silent)
-    logger.warning(" === tBB started ===  args: {}".format(args))  # warnings are sent to syslog
+    try:
+        port = frontends.FrontendsHandler.determine_port(
+            host=config['frontends_socket']['host'],
+            starting_port=config['frontends_socket']['port'],
+            maximum_port_lookup=config['frontends_socket']['maximum_port_lookup']
+        )
+    except KeyError:
+        logger.error("Couldn't find settings for frontends configuration. Using default configuration "
+                     "(host: 'localhost', starting port: '1984', maximum port lookup: '20').", exc_info=True)
+        port = frontends.FrontendsHandler.determine_port(
+            host='localhost',
+            starting_port=1984,
+            maximum_port_lookup=20
+        )
+    except:
+        logger.critical("Couldn't find appropriate port with given configuration: host: '{}', starting port: '{}', "
+                        "maximum tries: '{}'. Got exception:".format(config['socket_host'], config['port'],
+                                                                      config['maximum_port_lookup']),
+                        exc_info=True
+        )
+        return
+    configure_logging(config, silent, socket_port=port)
+    logger.warning(" === tBB started ===  args: {}".format(args))  # warnings are usually sent to syslog
     if os.geteuid() != 0:
         logger.critical("tBB requires root privileges to be run.")
         return
@@ -294,7 +321,7 @@ def main(args):
     configure_tracker(track, config)
     with open(password_file_path, 'r') as f:
         password = f.read().strip()
-    frontends_handler = frontends.FrontendsHandler(track, password, port=1984, loop=loop)
+    frontends_handler = frontends.FrontendsHandler(track, password, port=port, loop=loop)
     tasks = asyncio.async(frontends_handler.start())
     try:
         loop.run_until_complete(tasks)

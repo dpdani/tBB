@@ -213,7 +213,7 @@ class Tracker(object):
                     is_up = yield from discovery.run(ip)
                 except discoveries.PingedBroadcast:
                     if self.auto_ignore_broadcasts and ip not in self.ignore:
-                        logger.error("Found broadcast at {}. Ignoring IP from now on.".format(ip))
+                        logger.info("Found broadcast at {}. Ignoring IP from now on.".format(ip))
                         self.ignore.append(ip)
                     return False
                 if is_up:

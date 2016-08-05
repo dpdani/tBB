@@ -11,6 +11,8 @@ import logging
 import datetime
 from aiohttp import web
 from asyncio import coroutine
+import socket  # only used for open port checking
+import contextlib
 from net_elements import *
 
 
@@ -34,25 +36,31 @@ class FrontendsHandler(object):
         else:
             self.loop = loop
 
+    @staticmethod
+    def determine_port(host, starting_port, maximum_port_lookup):
+        port = starting_port
+        while True:
+            with contextlib.closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:
+                if sock.connect_ex((host, port)) != 0:
+                    break
+                else:
+                    port += 1
+                    if port > starting_port + maximum_port_lookup:
+                        raise RuntimeError("maximum lookup exceeded while looking for available port.")
+        return port
+
     @coroutine
     def start(self):
         self.loop = asyncio.get_event_loop()
         self.handler = self.app.make_handler(logger=logger)
-        while True:
-            try:
-                if hasattr(self, 'sslcontext'):
-                    sslcon = self.sslcontext
-                else:
-                    sslcon = None
-                self.srv = yield from self.loop.create_server(
-                    self.handler, self.host, self.port, ssl=sslcon
-                )
-                break
-            except OSError:
-                self.port += 1
-            if self.port >= 1984+20:
-                raise Exception("Couldn't find a port for opening socket.")
-        self.bind()
+        if hasattr(self, 'sslcontext'):
+            sslcon = self.sslcontext
+        else:
+            sslcon = None
+        self.srv = yield from self.loop.create_server(
+            self.handler, self.host, self.port, ssl=sslcon
+        )
+        self.bind_requests()
         logger.info("Frontend socket opened at {}://{}:{}/.".format(
             'https' if sslcon else 'http',
             self.host, self.port
@@ -65,7 +73,7 @@ class FrontendsHandler(object):
         self.loop.run_until_complete(self.handler.finish_connections(1.0))
         self.loop.run_until_complete(self.app.cleanup())
 
-    def bind(self):
+    def bind_requests(self):
         self.app.router.add_route('GET', '/test/', self.test)
         self.app.router.add_route('GET', '/stats/{password}/', self.stats)
         self.app.router.add_route('GET', '/ip_info/{addr}/{password}/', self.ip_info)
