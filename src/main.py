@@ -323,7 +323,9 @@ def main(args):
         password = f.read().strip()
     frontends_handler = frontends.FrontendsHandler(track, password,
                                                    host=config['frontends_socket']['host'],
-                                                   port=port, loop=loop, use_ssl=config['frontends_socket']['ssl'])
+                                                   port=port, loop=loop,
+                                                   use_ssl=config['frontends_socket']['ssl'],
+                                                   do_checks=config['frontends_socket']['do_checks'])
     tasks = asyncio.async(frontends_handler.start())
     try:
         loop.run_until_complete(tasks)

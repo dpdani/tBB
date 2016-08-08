@@ -23,7 +23,7 @@ logger.setLevel(logging.DEBUG)
 
 
 class FrontendsHandler(object):
-    def __init__(self, tracker, password, host='localhost', port=1984, loop=None, use_ssl=True):
+    def __init__(self, tracker, password, host='localhost', port=1984, use_ssl=True, loop=None, do_checks=True):
         self.tracker = tracker
         self.password = password
         self.port = port
@@ -35,7 +35,7 @@ class FrontendsHandler(object):
                                        keyfile=os.path.join(os.getcwd(), "certs", "key.pem"))
             self.sslcontext.options |= ssl.OP_NO_SSLv2
             self.sslcontext.options |= ssl.OP_NO_SSLv3
-            self.sslcontext.check_hostname = False
+            self.sslcontext.check_hostname = do_checks
         if loop is None:
             self.loop = asyncio.get_event_loop()
         else:
