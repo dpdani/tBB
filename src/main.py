@@ -321,7 +321,9 @@ def main(args):
     configure_tracker(track, config)
     with open(password_file_path, 'r') as f:
         password = f.read().strip()
-    frontends_handler = frontends.FrontendsHandler(track, password, port=port, loop=loop)
+    frontends_handler = frontends.FrontendsHandler(track, password,
+                                                   host=config['frontends_socket']['host'],
+                                                   port=port, loop=loop, use_ssl=config['frontends_socket']['ssl'])
     tasks = asyncio.async(frontends_handler.start())
     try:
         loop.run_until_complete(tasks)

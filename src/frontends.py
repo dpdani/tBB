@@ -9,10 +9,12 @@ import asyncio
 import json
 import logging
 import datetime
+import os
+import ssl
+import socket  # only used for open port checking
+import contextlib  # only used for open port checking
 from aiohttp import web
 from asyncio import coroutine
-import socket  # only used for open port checking
-import contextlib
 from net_elements import *
 
 
@@ -21,16 +23,19 @@ logger.setLevel(logging.DEBUG)
 
 
 class FrontendsHandler(object):
-    def __init__(self, tracker, password, host='192.168.2.90', port=1984, loop=None):
+    def __init__(self, tracker, password, host='localhost', port=1984, loop=None, use_ssl=True):
         self.tracker = tracker
         self.password = password
         self.port = port
         self.host = host
         self.app = web.Application(logger=logger)
-        # self.sslcontext = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
-        # self.sslcontext.verify_mode = ssl.CERT_REQUIRED
-        # self.sslcontext.check_hostname = True
-        # self.sslcontext.load_verify_locations(os.path.join(os.getcwd(), "certs", "server.pem"))
+        if use_ssl:
+            self.sslcontext = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+            self.sslcontext.load_cert_chain(certfile=os.path.join(os.getcwd(), "certs", "cert.pem"),
+                                       keyfile=os.path.join(os.getcwd(), "certs", "key.pem"))
+            self.sslcontext.options |= ssl.OP_NO_SSLv2
+            self.sslcontext.options |= ssl.OP_NO_SSLv3
+            self.sslcontext.check_hostname = False
         if loop is None:
             self.loop = asyncio.get_event_loop()
         else:

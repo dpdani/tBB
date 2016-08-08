@@ -3,7 +3,8 @@
     "frontends_socket": {
         "host": "192.168.2.90",
         "port": 1984,
-        "maximum_port_lookup": 20
+        "maximum_port_lookup": 20,
+        "ssl": true
     },
     "least_record_update_seconds": 3600,
     "logging": {
