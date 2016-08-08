@@ -45,6 +45,7 @@ class Tracker(object):
 
     @property
     def up_hosts(self):
+        """Number of IP hosts currently up."""
         up = 0
         for host in self.ip_hosts.values():
             if host.is_up:
@@ -53,6 +54,7 @@ class Tracker(object):
 
     @property
     def up_ip_hosts(self):
+        """IPHosts currently up. Result is a dictionary {IPElement: IPHost}."""
         up_ip_hosts = {}
         for host in self.ip_hosts:
             if self.ip_hosts[host].is_up:
@@ -61,6 +63,7 @@ class Tracker(object):
 
     @property
     def up_mac_hosts(self):
+        """MACHosts currently up. Result is a dictionary {MACElement: MACHost}."""
         up_mac_hosts = {}
         for host in self.mac_hosts:
             if self.mac_hosts[host].is_up:
@@ -74,6 +77,7 @@ class Tracker(object):
 
     @status.setter
     def status(self, value):
+        """Used to supply information to front-ends. Setting will trigger logging (DEBUG)."""
         self._status = value
         logger.debug(self._status)
         # tell front-ends about update here
@@ -85,23 +89,10 @@ class Tracker(object):
 
     @outer_status.setter
     def outer_status(self, value):
+        """Used to supply information to front-ends. Setting will trigger logging (DEBUG)."""
         self._outer_status = value
         logger.debug(self._outer_status)
         # tell front-ends about update here
-
-    @property
-    def average_network_iteration_time(self):
-        """Average network check iteration time in seconds.
-        Calculated based on network's length and set sleeping times
-        between checks.
-        :return type: float or int
-        """
-        enabled_discoveries = 0
-        for discovery in self.discoveries:
-            if discovery.enabled:
-                enabled_discoveries += 1
-        return len(self.network) * (self.time_between_checks.total_seconds() + self.maximum_seconds_randomly_added / 2) \
-               * enabled_discoveries
 
     @coroutine
     def do_complete_network_scan(self):
@@ -110,27 +101,19 @@ class Tracker(object):
         use self.highest_priority_host internally; iterates
         over self.network instead.
         """
-        logger.debug("Scanning entire network: {}.".format(self.network))
         self.outer_status = "Scanning entire network: {}.".format(self.network)
+        logger.debug(self.outer_status)
         ser = self.serializer  # disconnecting serializer for complete scan.
-        self.serializer = None
+        self.serializer = None #
         up = 0
-        # tasks = []
-        # start = 1
-        # hosts = 16
-        # while start < len(self.network):
-        #     tasks.append(self.do_partial_scan(start, hosts))
-        #     start += hosts
-        # yield from asyncio.gather(*tasks)
         for ip in self.network:
             if self.ignore_networks_and_broadcasts:
-                if ip.is_broadcast() and ip.is_network() and ip in self.ignore:
+                if ip.is_broadcast() or ip.is_network():
                     logger.debug("Ignoring: {}".format(ip))
                     continue
-            else:
-                if ip in self.ignore:
-                    logger.debug("Ignoring: {}".format(ip))
-                    continue
+            if ip in self.ignore:
+                logger.debug("Ignoring (found in self.ignore): {}".format(ip))
+                continue
             if (yield from self.do_single_scan(ip)):
                 up += 1
         self.serializer = ser  # reconnecting serializer
@@ -160,13 +143,12 @@ class Tracker(object):
         up = 0
         for _ in range(hosts - start):
             if self.ignore_networks_and_broadcasts:
-                if ip.is_broadcast() and ip.is_network() and ip in self.ignore:
+                if ip.is_broadcast() or ip.is_network():
                     logger.debug("Ignoring: {}".format(ip))
                     continue
-            else:
-                if ip in self.ignore:
-                    logger.debug("Ignoring: {}".format(ip))
-                    continue
+            if ip in self.ignore:
+                logger.debug("Ignoring (found in self.ignore): {}".format(ip))
+                continue
             if (yield from self.do_single_scan(ip)):
                 up += 1
             ip += 1
@@ -175,13 +157,14 @@ class Tracker(object):
     @coroutine
     def do_single_scan(self, ip):
         """Runs a scan to the specified ip.
-        Uses discovery methods self.icmp, self.arp and self.syn.
-        You can enable/disable each one of them setting Tracker.do_*.
+        Uses discovery methods found in self.discoveries.
+        You can enable/disable each one of them by setting
+        self.discoveries[x].enable to whatever suits you.
         This function takes care of detecting whether the host changed
         its status and if so it calls self.fire_notifiers.
         If one discovery method results positive others won't be run.
         Note: in order to provide the mac address of the scanning host,
-        ARP will be run even if self.do_arp is set to false, but it
+        ARP will be run even if it had been disabled, but it
         won't be tracked as the discovery method used when executed
         for this purpose.
         Returns whether or not the host was found to be up.
@@ -198,6 +181,7 @@ class Tracker(object):
         method = None
         is_up = False
         self.status = "scanning ip '{}' - running mac discovery.".format(ip)
+        # finding mac...
         try:
             mac = (yield from self.arp.run(ip))[1]
         except discoveries.PingedBroadcast:
@@ -205,6 +189,7 @@ class Tracker(object):
                 logger.error("Found broadcast at {}. Ignoring IP from now on.".format(ip))
                 self.ignore.append(ip)
             return False
+        # detecting is_up...
         for discovery in self.discoveries:
             if discovery.enabled:
                 self.status = "scanning ip '{}' - running {}.".format(ip, discovery.short_name)
@@ -220,6 +205,7 @@ class Tracker(object):
                     break
                 else:
                     method = None
+        # detecting changes and finishing...
         self.status = "scanning ip '{}' - finishing.".format(ip)
         ip_changed = self.ip_hosts[ip].update(mac, method, is_up)
         if mac is not None:
@@ -257,7 +243,7 @@ class Tracker(object):
         sleeping mechanisms between scans in order to reduce its
         weight on the network. The time it takes for sleeping
         can be set using Track.time_between_scans and Track.\
-        maximum_seconds_randomly_added calculated as follows:
+        maximum_seconds_randomly_added, calculated as follows:
           sleep = time_between_scans + randint(0, maximum_seconds_randomly_added)
         randint being the random.randint function included in
         the Python's standard library.
@@ -270,7 +256,8 @@ class Tracker(object):
                 yield from self.do_single_scan(host)
             except discoveries.ParsingException as exc:
                 logger.error("Error while parsing: {}".format(exc))
-            sleep_for = self.time_between_checks.total_seconds() + random.randint(0, self.maximum_seconds_randomly_added)
+            sleep_for = self.time_between_checks.total_seconds() + \
+                        random.randint(0, self.maximum_seconds_randomly_added)
             host = self.highest_priority_host()
             self.status = "sleeping for {} seconds. next ip to scan: {}.".format(sleep_for, host)
             yield from asyncio.sleep(sleep_for)
@@ -330,10 +317,62 @@ class Tracker(object):
 
     @coroutine
     def changes(self, hosts, from_, to, json_compatible=False):
+        """This function returns changes occurred
+        to given hosts within the given time period.
+        If argument json_compatible evaluates to True,
+        in the returned dict there will be no objects
+        as defined in net_elements. Instead they will
+        be converted into builtin types as follows:
+          - IPElement("192.168.0.0/24") -> "192.168.0.0"  # str
+          - MACElement("a0:ff:e4:bc:66:70") -> "a0:ff:e4:bc:66:70"  # str
+          - datetime() -> datetime().timestamp()  # float
+        The returned dict will be in the following form:
+        {
+            IPElement("...") : {
+                'discovery_history': {
+                    datetime(...): 'icmp',  # or 'syn'
+                    ...
+                },
+                'is_up_history': {
+                    datetime(...): True,  # or False
+                    ...
+                },
+                'mac_history': {
+                    datetime(...): MACElement("..."),
+                    ...
+                }
+            },
+            MACElement("..."): {
+                'history': {
+                    datetime(...): [IPElement("..."), ...],
+                    ...
+                }
+                'is_up_history': {
+                  datetime(...): True,  # or False
+                  ...
+                }
+            }
+            IPElement("..."): {
+                ...
+            },
+            ...
+        }
+        Since this function may do some heavy calculations
+        and therefore block, it had been designed to be a
+        coroutine, in order to prevent blocking.
+        For filtering results to IPHosts only or MACHosts
+        only, see Tracker.ip_changes and Tracker.mac_changes.
+        :param hosts: IPHost,MACHost[]
+        :param from_: datetime.datetime
+        :param to: datetime.datetime
+        :param json_compatible: bool
+        :return: dict
+        """
         changes = {}
         hosts_combined = list(self.ip_hosts.values())
         for machost in self.mac_hosts.values():
             hosts_combined.append(machost)
+            yield
         for host in hosts_combined:
             if host in hosts or len(hosts) == 0:
                 if json_compatible:
@@ -345,6 +384,7 @@ class Tracker(object):
                         host_name = str(host)
                 else:
                     host_name = host
+                yield
                 changes[host_name] = {}
                 for attr in dir(host):
                     if attr.find("history") > -1:
@@ -356,7 +396,7 @@ class Tracker(object):
                         changes[host_name][attr] = {}
                         for entry in history:
                             if from_ <= entry <= to:
-                                if attr == 'history':  # MACHost.history is the only attribute called like this
+                                if attr == 'history':  # *MACHost*.history is the only attribute called like this
                                     if json_compatible:
                                         changes[host_name][attr][str(entry.timestamp())] = []
                                         for ip in history[entry]:
@@ -373,6 +413,7 @@ class Tracker(object):
 
     @coroutine
     def ip_changes(self, hosts, from_, to, json_compatible=False):
+        """Similar to Tracker.changes, but only iterates over IPHosts."""
         hosts_ = []
         if len(hosts) == 0:
             hosts_ = self.ip_hosts.values()
@@ -385,6 +426,7 @@ class Tracker(object):
 
     @coroutine
     def mac_changes(self, hosts, from_, to, json_compatible=False):
+        """Similar to Tracker.changes, but only iterates over MACHosts."""
         hosts_ = []
         if len(hosts) == 0:
             hosts_ = self.mac_hosts.values()
@@ -400,7 +442,31 @@ class Tracker(object):
 
 
 class TrackersHandler(object):
+    """
+    This is capable of handling different Tracker instances
+    at the same time.
+    For methods and attributes documentation you may refer
+    to Tracker's documentation, since this class mimics
+    most of its behaviour. Please, note that this is not
+    a subclass of Tracker, though.
+    In most cases Tracker's attributes are mapped to
+    properties in order to provide the attributes of all
+    Trackers this object is currently handling.
+    Usually, setting one of these properties reflects
+    the change to all Trackers objects currently handled.
+    """
     def __init__(self, network, hosts=16):
+        """
+        This function handles splitting of the
+        network into different sub-networks.
+        Each sub-network's length is defined with
+        the hosts argument. It, therefore, should be
+        a valid network length (a power of 2).
+        You can check if a value is ok for hosts argument
+        by checking it against net_elements.netmask_from_netlength.
+        Each sub-network will be passed to a Tracker
+        as its network to keep track.
+        """
         self.network = network
         self.mac_hosts = {}  # MACElement: MACHost
         self.hosts = hosts
