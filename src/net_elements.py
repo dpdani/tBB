@@ -6,6 +6,11 @@ Network elements representations for Python.
 
 import datetime
 import math
+import logging
+
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 def netmask_from_netlength(hosts):
@@ -351,6 +356,13 @@ class IPHost(object):
             return None
 
     @property
+    def second_last_mac(self):
+        try:
+            return self.mac_history[sorted(self.mac_history.keys())[-2]]
+        except IndexError:  # history is empty
+            return None
+
+    @property
     def ago(self):
         return datetime.datetime.now() - self.last_check
 
@@ -375,25 +387,20 @@ class IPHost(object):
         if is_up:
             self.last_seen = self.last_check
         changed = False
-        what = ''
+        what = []
         if mac != self.mac and mac is not None:
             self.add_to_mac_history(mac)
             changed = True
-            if what != '':
-                what += ' '
-            what += 'mac'
+            what.append('mac')
         if method != self.last_discovery_method and method is not None:
             self.add_to_discovery_history(method)
             changed = True
-            if what != '':
-                what += ' '
-            what += 'method'
+            what.append('method')
         if is_up != self.is_up:
             self.add_to_is_up_history(is_up)
             changed = True
-            if what != '':
-                what += ' '
-            what += 'is_up'
+            what.append('is_up')
+        what = ' '.join(what)
         return changed, what
 
     def print_histories(self):
@@ -428,9 +435,7 @@ class MACHost(object):
             raise TypeError("expected a MACElement instance for argument mac. Got: {}".format(mac))
         self.mac = mac
         self.history = {}
-        self.is_up_history = {}
         self.last_update = datetime.datetime.fromtimestamp(0)
-        self.last_seen = datetime.datetime.fromtimestamp(0)
 
     @property
     def ip(self):
@@ -443,56 +448,49 @@ class MACHost(object):
     def ago(self):
         return datetime.datetime.now() - self.last_update
 
-    @property
-    def is_up(self):
-        try:
-            return self.is_up_history[sorted(self.is_up_history.keys())[-1]]
-        except IndexError:  # history is empty
-            return None
-
     def add_to_history(self, stuff):
         if not isinstance(stuff, tuple):
             stuff = (stuff,)
         self.history[self.last_update] = stuff
 
-    def add_to_is_up_history(self, stuff):
-        self.is_up_history[self.last_update] = stuff
-
-    def update(self, ip, is_up):
+    def update(self, ip):
         self.last_update = datetime.datetime.now()
-        if is_up:
-            self.last_seen = self.last_update
         changed = False
-        what = ''
+        what = []
         if self.ip is not None:
-            if ip not in self.ip:
-                self.add_to_history(ip)
-                changed = True
-                if what != '':
-                    what += ' '
-                what += 'ip1'
+            if type(ip) == tuple:
+                if self.ip != ip:
+                    self.add_to_history(ip)
+                    changed = True
+                    what.append('ip_left')
+            else:
+                if ip not in self.ip:
+                    _ip = list(self.ip)
+                    _ip.append(ip)
+                    _ip = tuple(_ip)
+                    self.add_to_history(_ip)
+                    changed = True
+                    what.append('ip_joined')
         else:
             self.add_to_history(ip)
             changed = True
-            if what != '':
-                what += ' '
-            what += 'ip'
-        if is_up != self.is_up:
-            # print(is_up, self.is_up)
-            self.add_to_is_up_history(is_up)
-            changed = True
-            if what != '':
-                what += ' '
-            what += 'is_up'
+            what.append('ip_none')
+        what = ' '.join(what)
         return changed, what
+
+    def update_ip_disconnected(self, ip):
+        ips = list(self.ip)
+        try:
+            ips.remove(ip)
+        except ValueError:
+            logger.error("MACHost '{}' was told that IP '{}' changed mac, "
+                         "but it wasn't part of this MACHost.".format(self, ip))
+        self.update(tuple(ips))
 
     def print_histories(self):
         print("IP HISTORY FOR macHOST: {}".format(repr(self)))
         for entry in sorted(self.history):
             print(entry, " - ", self.history[entry])
-        print("UP HISTORY FOR macHOST: {}".format(repr(self)))
-        for entry in sorted(self.is_up_history):
-            print(entry, " - ", self.is_up_history[entry])
 
     def __eq__(self, other):
         if not isinstance(other, self.__class__):

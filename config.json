@@ -67,6 +67,6 @@
         "maximum_seconds_randomly_added": 2,
         "auto_ignore_broadcasts": true,
         "ignore": [],
-        "ignore_mac": ["00:1B:0D:59:51:C2"]
+        "ignore_mac": []
     }
 }

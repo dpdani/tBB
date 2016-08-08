@@ -77,16 +77,12 @@ class Serializer(object):
             except KeyError:
                 host = MACHost(MACElement(mac))
             host.last_update = datetime.datetime.fromtimestamp(read['MAC_HOSTS'][mac]['last_update'])
-            host.last_seen = datetime.datetime.fromtimestamp(read['MAC_HOSTS'][mac]['last_seen'])
             for entry in read['MAC_HOSTS'][mac]['history']:
                 decoded = datetime.datetime.fromtimestamp(float(entry))
                 decoded_ips = []
                 for ip in read['MAC_HOSTS'][mac]['history'][entry]:
                     decoded_ips.append(IPElement(ip))
                 host.history[decoded] = tuple(decoded_ips)
-            for entry in read['MAC_HOSTS'][mac]['is_up_history']:
-                decoded = datetime.datetime.fromtimestamp(float(entry))
-                host.is_up_history[decoded] = read['MAC_HOSTS'][mac]['is_up_history'][entry]
             self.track.trackers[0].mac_hosts[MACElement(mac)] = host  # putting every mac host in the first tracker
                                                                       # causes issues when comparing from last state in single tracker
 
@@ -135,13 +131,8 @@ class Serializer(object):
             host = self.track.mac_hosts[mac_host]
             to_save['MAC_HOSTS'][mac_host.mac] = {
                 'history': {},
-                'is_up_history': {},
                 'last_update': host.last_update.timestamp(),
-                'last_seen': host.last_seen.timestamp()
             }
-            for entry in host.is_up_history:
-                encoded = str(entry.timestamp())
-                to_save['MAC_HOSTS'][MACElement(mac_host.mac)]['is_up_history'][encoded] = host.is_up_history[entry]
             for entry in host.history:
                 encoded = str(entry.timestamp())
                 encoded_ips = []

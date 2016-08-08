@@ -208,24 +208,23 @@ class Tracker(object):
         # detecting changes and finishing...
         self.status = "scanning ip '{}' - finishing.".format(ip)
         ip_changed = self.ip_hosts[ip].update(mac, method, is_up)
+        if 'mac' in ip_changed[1]:
+            self.mac_hosts[self.ip_hosts[ip].second_last_mac].update_ip_disconnected(ip)
+        mac_elem = MACElement(str(mac))  # mac converted to str in order to prevent TypeErrors
+        if mac_elem not in self.mac_hosts and mac is not None:
+            host = MACHost(mac_elem)
+            self.mac_hosts[mac_elem] = host
         if mac is not None:
-            if MACElement(mac) not in self.ignore_mac:
-                try:
-                    if mac is not None:
-                        mac_changed = self.mac_hosts[MACElement(mac)].update(ip, is_up)
-                    elif self.ip_hosts[ip].mac is not None and mac is None:  # mac went down
-                        mac = self.ip_hosts[ip].mac
-                        mac_changed = self.mac_hosts[MACElement(mac)].update(ip, is_up)
-                    else:
-                        mac_changed = (False, None)
-                except KeyError:
-                    host = MACHost(MACElement(mac))
-                    mac_changed = host.update(ip, is_up)
-                    self.mac_hosts[MACElement(mac)] = host
+            if mac_elem not in self.ignore_mac:
+                mac_changed = self.mac_hosts[mac_elem].update(ip)
             else:
                 mac_changed = (False, '')
         else:
-            mac_changed = (False, '')
+            if self.ip_hosts[ip].mac is not None:  # mac went down
+                mac = self.ip_hosts[ip].mac
+                mac_changed = self.mac_hosts[MACElement(mac)].update(ip)
+            else:
+                mac_changed = (False, '')
         if ip_changed[0] or mac_changed[0] or self.force_notify:
             yield from self.fire_notifiers(ip, mac, method, is_up, ip_changed[1], mac_changed[1])
         return is_up
