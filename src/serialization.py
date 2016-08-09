@@ -22,8 +22,8 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-def path_for_network(network, saving_path=default_saving_path):
-    return os.path.join(saving_path, network.as_string().replace('/', '\\') + '.tbbscan')
+def path_for_network(network, saving_path=default_saving_path, suffix='.tbbscan'):
+    return os.path.join(saving_path, network.as_string().replace('/', '\\') + suffix)
 
 
 class Serializer(object):

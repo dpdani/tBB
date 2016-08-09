@@ -15,6 +15,7 @@ import logging.config
 import logging.handlers
 import json
 import asyncio
+import collections
 import tracker
 import serialization
 import frontends
@@ -185,6 +186,31 @@ def read_configuration_file(path):
             logger.exception("Skipping tracker.ignore_mac configuration: file malformed.")
     return config
 
+def read_specific_configuration_file(path, old_config, net):
+    def update(orig_dict, new_dict):
+        for key, val in new_dict.items():
+            if isinstance(val, collections.Mapping):
+                tmp = update(orig_dict.get(key, {}), val)
+                orig_dict[key] = tmp
+            elif isinstance(val, list):
+                orig_dict[key] = (orig_dict[key] + val)
+            else:
+                orig_dict[key] = new_dict[key]
+        return orig_dict
+
+    if os.path.exists(path):
+        with open(path, 'r') as f:
+            read = f.read().replace('{default_time_format}', default_time_format)
+        try:
+            config = json.loads(read)
+        except (ValueError, ImportError):
+            logger.exception("Found configuration file specific for '{}' at {}, but is malformed.".format(
+                net, path, exc_info=True))
+        else:
+            logger.info("Found configuration file specific for '{}' at {}.".format(net, path))
+            update(old_config, config)
+        return old_config
+
 
 @asyncio.coroutine
 def tiny_cli(globals, locals):
@@ -211,8 +237,25 @@ def main(args):
             pass
         sys.stdout.write = write
     config = read_configuration_file(
-        os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config.json"))
+        os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config_default.json"))
     )
+    if len(args) > 0:
+        netip = args[0]
+        try:
+            net = Network(netip)
+        except: pass
+        else:
+            specific_configuration_file_path = os.path.abspath(os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), "..", "config_{}.json".format(
+                    serialization.path_for_network(net, saving_path='', suffix='')
+                )
+            ))
+            if os.path.isfile(specific_configuration_file_path):
+                config = read_specific_configuration_file(
+                    specific_configuration_file_path,
+                    old_config=config,
+                    net=net
+                )
     try:
         port = frontends.FrontendsHandler.determine_port(
             host=config['frontends_socket']['host'],
