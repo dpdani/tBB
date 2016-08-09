@@ -158,9 +158,7 @@ class IPElement(object):
                 return False
         if not isinstance(other, self.__class__):
             return False
-        if self.ip == other.ip and self.mask == other.mask:
-            return True
-        return False
+        return self.ip == other.ip
 
     def __lt__(self, other):
         if type(other) == str:

@@ -9,6 +9,7 @@ from asyncio import coroutine
 import logging
 import datetime
 import random
+import socket  # used for IP sorting
 from net_elements import Network, IPElement, IPHost, MACElement, MACHost, netmask_from_netlength
 import discoveries
 
@@ -63,11 +64,21 @@ class Tracker(object):
 
     @property
     def up_mac_hosts(self):
-        """MACHosts currently up. Result is a dictionary {MACElement: MACHost}."""
+        """MACHosts currently up. Result is a dictionary {MACElement: MACHost}.
+        Determining how a MACHost is up is a little bit different
+        from an IPHost. Since a MACHost doesn't hold any up state,
+        a MACHost is considered up when any of the IPHosts related
+        to it (found in MACHost.ip) is up. Therefore even if only
+        one of the (possibly) many IPHosts is up, the MACHost is
+        considered up."""
         up_mac_hosts = {}
-        for host in self.mac_hosts:
-            if self.mac_hosts[host].is_up:
-                up_mac_hosts[host] = self.mac_hosts[host]
+        for host in self.mac_hosts.values():
+            for ip in host.ip:
+                if ip not in self.ip_hosts:  # IP not found in this tracker, skipping...
+                    continue
+                if self.ip_hosts[ip].is_up:
+                    up_mac_hosts[host.mac] = self.mac_hosts[host.mac]
+                    break  # at first ip found up, the MACHost is considered up.
         return up_mac_hosts
 
     @property
@@ -209,7 +220,7 @@ class Tracker(object):
         self.status = "scanning ip '{}' - finishing.".format(ip)
         ip_changed = self.ip_hosts[ip].update(mac, method, is_up)
         if 'mac' in ip_changed[1]:
-            self.mac_hosts[self.ip_hosts[ip].second_last_mac].update_ip_disconnected(ip)
+            self.mac_hosts[MACElement(self.ip_hosts[ip].second_last_mac)].update_ip_disconnected(ip)
         mac_elem = MACElement(str(mac))  # mac converted to str in order to prevent TypeErrors
         if mac_elem not in self.mac_hosts and mac is not None:
             host = MACHost(mac_elem)
@@ -281,12 +292,12 @@ class Tracker(object):
         priorities = {}  # priority: IP
         for host in self.ip_hosts.values():
             if self.ignore_networks_and_broadcasts:
-                if host._ip.is_broadcast() and host._ip.is_network() and host._ip in self.ignore:
+                if (host._ip.is_broadcast() or host._ip.is_network()):
                     logger.debug("Ignoring: {}".format(host._ip))
                     continue
             else:
                 if host._ip in self.ignore:
-                    logger.debug("Ignoring: {}".format(host._ip))
+                    logger.debug("Ignoring (found in self.ignore): {}".format(host._ip))
                     continue
             if host._ip in self.priorities:
                 priorities[
@@ -483,13 +494,14 @@ class TrackersHandler(object):
                 net.forced_length = len(net)  # this way net's broadcast will be checked: not a real broadcast
                 tr = Tracker(net)
             tr.ignore_networks_and_broadcasts = False  # sub-networks broadcasts are not real broadcasts
-            if sorted(tr.ip_hosts.keys())[-1].ip[0] == self.network.broadcast().ip[0]:
-                # since broadcasts ignoring is inhibited by default, manually ignore real broadcast
-                tr.ignore.append(sorted(tr.ip_hosts.keys())[-1])
             self.mac_hosts.update(tr.mac_hosts)
             tr.mac_hosts = self.mac_hosts  # using shared memory for MACHosts.
             self.trackers.append(tr)
             start += hosts
+        # since broadcasts and networks ignoring is inhibited by default, manually ignore real broadcast and network
+        network_and_broadcast = [self.network[0], self.network.broadcast()]
+        self.ignore = network_and_broadcast
+
 
     @property
     def status(self):
@@ -508,23 +520,17 @@ class TrackersHandler(object):
         return up
 
     @property
-    @coroutine
     def up_ip_hosts(self):
         up_ip_hosts = {}
-        for host in self.ip_hosts:
-            if self.ip_hosts[host].is_up:
-                up_ip_hosts[host] = self.ip_hosts[host]
-            yield
+        for tr in self.trackers:
+            up_ip_hosts.update(tr.up_ip_hosts)
         return up_ip_hosts
 
     @property
-    @coroutine
     def up_mac_hosts(self):
         up_mac_hosts = {}
-        for host in self.mac_hosts:
-            if self.mac_hosts[host].is_up:
-                up_mac_hosts[host] = self.mac_hosts[host]
-            yield
+        for tr in self.trackers:
+            up_mac_hosts.update(tr.up_mac_hosts)
         return up_mac_hosts
 
     @property

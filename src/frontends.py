@@ -161,15 +161,11 @@ class FrontendsHandler(object):
         info = {
             'mac': as_mac.mac,
             'last_update': host.last_update.timestamp(),
-            'last_seen': host.last_seen.timestamp(),
-            'ip': host.ip[0].ip[0],
-            'is_up': host.is_up,
+            'ip': [],
             'history': {},
-            'is_up_history': {},
         }
-        for entry in host.is_up_history:
-            encoded = str(entry.timestamp())
-            info['is_up_history'][encoded] = host.is_up_history[entry]
+        for ip in host.ip:
+            info['ip'].append(ip.ip[0])
         for entry in host.history:
             encoded = str(entry.timestamp())
             encoded_ips = []
@@ -457,7 +453,7 @@ class FrontendsHandler(object):
         if check is not None:
             return check
         up_hosts = []
-        for host in (yield from self.tracker.up_ip_hosts):
+        for host in self.tracker.up_ip_hosts:
             up_hosts.append(host.ip[0])
             yield
         return web.Response(status=200, body= \
@@ -470,7 +466,7 @@ class FrontendsHandler(object):
         if check is not None:
             return check
         up_hosts = []
-        for host in (yield from self.tracker.up_mac_hosts):
+        for host in self.tracker.up_mac_hosts:
             up_hosts.append(host.mac)
             yield
         return web.Response(status=200, body= \
