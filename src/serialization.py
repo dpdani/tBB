@@ -61,6 +61,11 @@ class Serializer(object):
             if MACElement(ignore) not in ignore_list:
                 ignore_list.append(MACElement(ignore))
         self.track.ignore_mac = ignore_list
+        priorities = self.track.priorities
+        for ip in read['TRACKERS_HANDLER']['priorities']:
+            if read['TRACKERS_HANDLER']['priorities'][ip] != 0:
+                priorities.update({IPElement(ip): read['TRACKERS_HANDLER']['priorities'][ip]})
+        self.track.priorities = priorities
         for ip in read['IP_HOSTS']:
             host = self.track.ip_hosts[IPElement(ip)]
             host.last_check = datetime.datetime.fromtimestamp(read['IP_HOSTS'][ip]['last_check'])
@@ -106,12 +111,16 @@ class Serializer(object):
         to_save['TRACKERS_HANDLER']['hosts'] = self.track.hosts
         to_save['TRACKERS_HANDLER']['ignore'] = []
         to_save['TRACKERS_HANDLER']['ignore_mac'] = []
+        to_save['TRACKERS_HANDLER']['priorities'] = {}
         for ignore in self.track.ignore:
-            if ignore not in to_save['TRACKERS_HANDLER']['ignore']:
+            if ignore.as_string() not in to_save['TRACKERS_HANDLER']['ignore']:
                 to_save['TRACKERS_HANDLER']['ignore'].append(ignore.as_string())
         for ignore in self.track.ignore_mac:
-            if ignore not in to_save['TRACKERS_HANDLER']['ignore_mac']:
+            if ignore.mac not in to_save['TRACKERS_HANDLER']['ignore_mac']:
                 to_save['TRACKERS_HANDLER']['ignore_mac'].append(ignore.mac)
+        for ip in self.track.priorities:
+            if self.track.priorities[ip] != 0:
+                to_save['TRACKERS_HANDLER']['priorities'].update({ip.as_string(): self.track.priorities[ip]})
         for ip_host in self.track.ip_hosts:
             host = self.track.ip_hosts[ip_host]
             to_save['IP_HOSTS'][ip_host.as_string()] = {
