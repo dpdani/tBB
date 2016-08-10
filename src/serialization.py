@@ -63,6 +63,11 @@ class Serializer(object):
             if MACElement(ignore) not in ignore_list:
                 ignore_list.append(MACElement(ignore))
         self.track.ignore_mac = ignore_list
+        ignore_list = self.track.ignore_name
+        for ignore in read['TRACKERS_HANDLER']['ignore_name']:
+            if ignore not in ignore_list:
+                ignore_list.append(ignore)
+        self.track.ignore_mac = ignore_list
         priorities = self.track.priorities
         for ip in read['TRACKERS_HANDLER']['priorities']:
             if read['TRACKERS_HANDLER']['priorities'][ip] != 0:
@@ -72,7 +77,7 @@ class Serializer(object):
             host = self.track.ip_hosts[IPElement(ip)]
             host.last_check = datetime.datetime.fromtimestamp(read['IP_HOSTS'][ip]['last_check'])
             host.last_seen = datetime.datetime.fromtimestamp(read['IP_HOSTS'][ip]['last_seen'])
-            for history_name in ('mac', 'is_up', 'discovery'):
+            for history_name in ('mac', 'is_up', 'discovery', 'name'):
                 history_name += "_history"
                 history = getattr(host, history_name)
                 for entry in read['IP_HOSTS'][ip][history_name]:
@@ -91,12 +96,25 @@ class Serializer(object):
                     decoded_ips.append(IPElement(ip))
                 host.history[decoded] = tuple(decoded_ips)
             self.track.trackers[0].mac_hosts[MACElement(mac)] = host
+        for name in read['NAME_HOSTS']:
+            try:
+                host = self.track.name_hosts[name]
+            except KeyError:
+                host = NameHost(name)
+            host.last_update = datetime.datetime.fromtimestamp(read['NAME_HOSTS'][name]['last_update'])
+            for entry in read['NAME_HOSTS'][name]['history']:
+                decoded = datetime.datetime.fromtimestamp(float(entry))
+                decoded_ips = []
+                for ip in read['NAME_HOSTS'][name]['history'][entry]:
+                    decoded_ips.append(IPElement(ip))
+                host.history[decoded] = tuple(decoded_ips)
+            self.track.trackers[0].name_hosts[name] = host
         logger.debug("Loading took {:.3f} seconds.".format(time.time() - start))
 
     @asyncio.coroutine
     def save(self):
         yield from asyncio.get_event_loop().run_in_executor(ProcessPoolExecutor(max_workers=3), self._save)
-        # self._save already sets self.last_save, but the executor prevents the change from being storedx
+        # self._save already sets self.last_save, but the executor prevents the change from being stored
         self.last_save = datetime.datetime.now()
 
     def _save(self):
@@ -107,6 +125,7 @@ class Serializer(object):
             "TRACKERS_HANDLER": {},
             "IP_HOSTS": {},
             "MAC_HOSTS": {},
+            "NAME_HOSTS": {},
         }
         for session in self.sessions:
             to_save['SESSIONS'][session[0].timestamp()] = session[1].timestamp()
@@ -114,6 +133,7 @@ class Serializer(object):
         to_save['TRACKERS_HANDLER']['hosts'] = self.track.hosts
         to_save['TRACKERS_HANDLER']['ignore'] = []
         to_save['TRACKERS_HANDLER']['ignore_mac'] = []
+        to_save['TRACKERS_HANDLER']['ignore_name'] = []
         to_save['TRACKERS_HANDLER']['priorities'] = {}
         for ignore in self.track.ignore:
             if ignore.as_string() not in to_save['TRACKERS_HANDLER']['ignore']:
@@ -121,6 +141,9 @@ class Serializer(object):
         for ignore in self.track.ignore_mac:
             if ignore.mac not in to_save['TRACKERS_HANDLER']['ignore_mac']:
                 to_save['TRACKERS_HANDLER']['ignore_mac'].append(ignore.mac)
+        for ignore in self.track.ignore_name:
+            if ignore.mac not in to_save['TRACKERS_HANDLER']['ignore_name']:
+                to_save['TRACKERS_HANDLER']['ignore_name'].append(ignore)
         for ip in self.track.priorities:
             if self.track.priorities[ip] != 0:
                 to_save['TRACKERS_HANDLER']['priorities'].update({ip.as_string(): self.track.priorities[ip]})
@@ -152,6 +175,26 @@ class Serializer(object):
                 for ip in host.history[entry]:
                     encoded_ips.append(ip.as_string())
                 to_save['MAC_HOSTS'][MACElement(mac_host.mac)]['history'][encoded] = encoded_ips
+        for name_host in self.track.name_hosts:
+            host = self.track.name_hosts[name_host]
+            to_save['NAME_HOSTS'][name_host] = {
+                'history': {},
+                'last_update': host.last_update.timestamp(),
+            }
+            if host.name == 'empty-name':
+                # this name usually takes up a lot of space for some very useless
+                # information, so let's only save the latest status for 'empty-name'.
+                ips = []
+                for ip in host.history[sorted(host.history)[-1]]:
+                    ips.append(ip.as_string())
+                to_save['NAME_HOSTS']['empty-name']['history'][str(sorted(host.history)[-1].timestamp())] = ips
+                continue
+            for entry in host.history:
+                encoded = str(entry.timestamp())
+                encoded_ips = []
+                for ip in host.history[entry]:
+                    encoded_ips.append(ip.as_string())
+                to_save['NAME_HOSTS'][name_host]['history'][encoded] = encoded_ips
         with open(self.path, 'w') as f:
             json.dump(to_save, f, indent=self.out_indent, sort_keys=self.out_sort_keys)
         self.last_save = datetime.datetime.now()

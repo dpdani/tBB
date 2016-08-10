@@ -369,6 +369,13 @@ class IPHost(object):
             return None
 
     @property
+    def second_last_name(self):
+        try:
+            return self.name_history[sorted(self.name_history.keys())[-2]]
+        except IndexError:  # history is empty
+            return None
+
+    @property
     def ago(self):
         return datetime.datetime.now() - self.last_check
 
@@ -521,3 +528,81 @@ class MACHost(object):
             return "<{} {}@{}>".format(self.__class__.__name__, self.mac, self.ip)
         else:
             return "<{} {}>".format(self.__class__.__name__, self.mac)
+
+
+class NameHost(object):
+    def __init__(self, name):
+        if type(name) != str:
+            raise TypeError("expected a string for argument name. Got: {}".format(name))
+        self.name = name
+        self.history = {}
+        self.last_update = datetime.datetime.fromtimestamp(0)
+
+    @property
+    def ip(self):
+        try:
+            return self.history[sorted(self.history.keys())[-1]]
+        except IndexError:  # history is empty
+            return None
+
+    @property
+    def ago(self):
+        return datetime.datetime.now() - self.last_update
+
+    def add_to_history(self, stuff):
+        if not isinstance(stuff, tuple):
+            stuff = (stuff,)
+        self.history[self.last_update] = stuff
+
+    def update(self, ip):
+        self.last_update = datetime.datetime.now()
+        changed = False
+        what = []
+        if self.ip is not None:
+            if type(ip) == tuple:
+                if self.ip != ip:
+                    self.add_to_history(ip)
+                    changed = True
+                    what.append('ip_left')
+            else:
+                if ip not in self.ip:
+                    _ip = list(self.ip)
+                    _ip.append(ip)
+                    _ip = tuple(_ip)
+                    self.add_to_history(_ip)
+                    changed = True
+                    what.append('ip_joined')
+        else:
+            self.add_to_history(ip)
+            changed = True
+            what.append('ip_none')
+        what = ' '.join(what)
+        return changed, what
+
+    def update_ip_disconnected(self, ip):
+        ips = list(self.ip)
+        try:
+            ips.remove(ip)
+        except ValueError:
+            logger.error("NameHost '{}' was told that IP '{}' changed name, "
+                         "but it wasn't part of this NameHost.".format(self, ip))
+        self.update(tuple(ips))
+
+    def print_histories(self):
+        print("IP HISTORY FOR NameHOST: {}".format(repr(self)))
+        for entry in sorted(self.history):
+            print(entry, " - ", self.history[entry])
+
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+        return self.name == other.name
+
+    def __hash__(self):
+        return self.name.__hash__()
+
+    def __repr__(self):
+        if self.name is not None:
+            return "<{} {}@{}>".format(self.__class__.__name__, self.name, self.ip)
+        else:
+            return "<{} {}>".format(self.__class__.__name__, self.name)

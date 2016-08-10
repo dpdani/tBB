@@ -56,6 +56,10 @@ class SYNParsingException(ParsingException):
     def __init__(self, ip, string):
         super().__init__(ip, 'syn', string)
 
+class HostNameParsingException(ParsingException):
+    def __init__(self, ip, string):
+        super().__init__(ip, 'host_name', string)
+
 
 class DiscoveryMethod:
     """Base-abstract class for all discovery methods."""
@@ -292,7 +296,10 @@ class HostNameDiscovery(DiscoveryMethod):
         except KeyboardInterrupt:
             return False
         result = result[0]
-        filtered_result = result.split(' ')[-1][:-1]
+        try:
+            filtered_result = result.split(' ')[-1][:-1]
+        except:
+            raise HostNameParsingException(ip, result)
         # e.g.: 90.2.168.192.in-addr.arpa domain name pointer portatile.hogwarts.local.
         #    filtered_result = -------------------------------^^^^^^^^^^^^^^^^^^^^^^^^
         took = time.time() - start
