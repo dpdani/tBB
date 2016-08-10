@@ -87,7 +87,7 @@ def configure_logging(config_file, silent, socket_port):
                 except KeyError:
                     logger.error("Error while reading syslog configuration. Got:", exc_info=True)
                 logging.config.dictConfig(config_file['logging'])
-            except Exception:
+            except:
                 logger.warning("Couldn't use config file for logging.", exc_info=True)
             else:
                 return
@@ -131,8 +131,8 @@ def read_configuration_file(path):
             logger.exception("Skipping syslog configuration: file malformed.")
         try:
             config['tracker']['time_between_checks'] = datetime.timedelta(
-                minutes = config['tracker']['time_between_checks']['minutes'],
-                seconds = config['tracker']['time_between_checks']['seconds'],
+                minutes=config['tracker']['time_between_checks']['minutes'],
+                seconds=config['tracker']['time_between_checks']['seconds'],
             )
         except KeyError:
             logger.exception("Skipping tracker.time_between_checks configuration: file malformed.")
@@ -144,18 +144,18 @@ def read_configuration_file(path):
                 if disc['type'] == 'icmp':
                     config['tracker']['discoveries'].append(
                         tracker.discoveries.ICMPDiscovery(
-                            count = cached[i]['count'],
-                            timeout = cached[i]['timeout'],
-                            flood = cached[i]['flood'],
-                            enabled = cached[i]['enabled']
+                            count=cached[i]['count'],
+                            timeout=cached[i]['timeout'],
+                            flood=cached[i]['flood'],
+                            enabled=cached[i]['enabled']
                         )
                     )
                 elif disc['type'] == 'syn':
                     config['tracker']['discoveries'].append(
                         tracker.discoveries.SYNDiscovery(
-                            ports = cached[i]['ports'],
-                            timeout = cached[i]['timeout'],
-                            enabled = cached[i]['enabled']
+                            ports=cached[i]['ports'],
+                            timeout=cached[i]['timeout'],
+                            enabled=cached[i]['enabled']
                         )
                     )
                 i += 1
@@ -163,10 +163,10 @@ def read_configuration_file(path):
             logger.exception("Skipping tracker.discoveries configuration: file malformed.")
         try:
             config['tracker']['arp'] = tracker.discoveries.ARPDiscovery(
-                count = config['tracker']['arp']['count'],
-                timeout = config['tracker']['arp']['timeout'],
-                quit_on_first = config['tracker']['arp']['quit_on_first'],
-                enabled = True
+                count=config['tracker']['arp']['count'],
+                timeout=config['tracker']['arp']['timeout'],
+                quit_on_first=config['tracker']['arp']['quit_on_first'],
+                enabled=True
             )
         except KeyError:
             logger.exception("Skipping tracker.arp configuration: file malformed.")
@@ -185,6 +185,7 @@ def read_configuration_file(path):
         except:
             logger.exception("Skipping tracker.ignore_mac configuration: file malformed.")
     return config
+
 
 def read_specific_configuration_file(path, old_config, net):
     def update(orig_dict, new_dict):
@@ -213,7 +214,7 @@ def read_specific_configuration_file(path, old_config, net):
 
 
 @asyncio.coroutine
-def tiny_cli(globals, locals):
+def tiny_cli(globals_, locals_):
     import async_stdio
     import traceback
     while True:
@@ -221,8 +222,8 @@ def tiny_cli(globals, locals):
         if inp in ('q', 'exit', 'quit'):
             break
         try:
-            exec(inp, globals, locals)
-        except Exception as exc:
+            exec(inp, globals_, locals_)
+        except:
             print("ERROR.")
             traceback.print_exc()
     logger.warning("tBB close requested by user input ({}).".format(inp))
@@ -243,7 +244,8 @@ def main(args):
         netip = args[0]
         try:
             net = Network(netip)
-        except: pass
+        except:
+            pass
         else:
             specific_configuration_file_path = os.path.abspath(os.path.join(
                 os.path.dirname(os.path.abspath(__file__)), "..", "config_{}.json".format(
@@ -273,7 +275,7 @@ def main(args):
     except:
         logger.critical("Couldn't find appropriate port with given configuration: host: '{}', starting port: '{}', "
                         "maximum tries: '{}'. Got exception:".format(config['socket_host'], config['port'],
-                                                                      config['maximum_port_lookup']),
+                                                                     config['maximum_port_lookup']),
                         exc_info=True
         )
         return
@@ -292,7 +294,8 @@ def main(args):
         return
     try:
         del args[args.index('--silent')]
-    except: pass
+    except:
+        pass
     if '--help' in args:
         print((
             "\n"
@@ -403,7 +406,8 @@ def main(args):
     track.force_notify = False
     try:
         logger.info("Initial check done. {}/{} hosts up. Took {}.".format(up, len(net), took))
-    except NameError: pass  # complete_scan not run -> 'up' not defined
+    except NameError:
+        pass  # complete_scan not run -> 'up' not defined
     print("\nThe Big Brother is watching.\n")
     tasks = [
         track.keep_network_tracked(initial_sleep=True),

@@ -9,10 +9,8 @@ from asyncio import coroutine
 import logging
 import datetime
 import random
-import socket  # used for IP sorting
 from net_elements import Network, IPElement, IPHost, MACElement, MACHost, netmask_from_netlength
 import discoveries
-
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -38,7 +36,7 @@ class Tracker(object):
         self.time_between_checks = datetime.timedelta(minutes=0, seconds=0)
         self.maximum_seconds_randomly_added = 0
         self._outer_status = 'initialized'  # supply information to front-ends
-        self._status = 'initialized'        #
+        self._status = 'initialized'  #
         self.ignore_networks_and_broadcasts = True
         self.serializer = None
         self.force_notify = False
@@ -115,7 +113,7 @@ class Tracker(object):
         self.outer_status = "Scanning entire network: {}.".format(self.network)
         logger.debug(self.outer_status)
         ser = self.serializer  # disconnecting serializer for complete scan.
-        self.serializer = None #
+        self.serializer = None  #
         up = 0
         for ip in self.network:
             if self.ignore_networks_and_broadcasts:
@@ -292,7 +290,7 @@ class Tracker(object):
         priorities = {}  # priority: IP
         for host in self.ip_hosts.values():
             if self.ignore_networks_and_broadcasts:
-                if (host._ip.is_broadcast() or host._ip.is_network()):
+                if host._ip.is_broadcast() or host._ip.is_network():
                     logger.debug("Ignoring: {}".format(host._ip))
                     continue
             else:
@@ -301,12 +299,12 @@ class Tracker(object):
                     continue
             if host._ip in self.priorities:
                 priorities[
-                    (self.priorities[host._ip] + int(host.ago.total_seconds())) * 10**12 + host._ip.as_int()
-                ] = host._ip
+                    (self.priorities[host._ip] + int(host.ago.total_seconds())) * 10 ** 12 + host._ip.as_int()
+                    ] = host._ip
             else:
                 priorities[
                     int(host.ago.total_seconds()) * 10 ** 12 + host._ip.as_int()
-                ] = host._ip
+                    ] = host._ip
         return priorities[max(priorities)]
 
     @coroutine
@@ -465,6 +463,7 @@ class TrackersHandler(object):
     Usually, setting one of these properties reflects
     the change to all Trackers objects currently handled.
     """
+
     def __init__(self, network, hosts=16):
         """
         This function handles splitting of the
@@ -501,7 +500,6 @@ class TrackersHandler(object):
         # since broadcasts and networks ignoring is inhibited by default, manually ignore real broadcast and network
         network_and_broadcast = [self.network[0], self.network.broadcast()]
         self.ignore = network_and_broadcast
-
 
     @property
     def status(self):

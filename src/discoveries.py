@@ -9,8 +9,6 @@ Library asyncio.subprocess is used to implement these methods.
 import asyncio
 import logging
 import time
-import socket
-import uuid
 from asyncio import coroutine
 from asyncio.subprocess import PIPE, STDOUT
 from net_elements import IPElement
@@ -63,7 +61,7 @@ class DiscoveryMethod:
     """Base-abstract class for all discovery methods."""
 
     def __init__(self, short_name, enabled=True):
-        self.enabled = True
+        self.enabled = enabled
         self.short_name = short_name
 
     @coroutine
@@ -199,7 +197,7 @@ class ARPDiscovery(DiscoveryMethod):
                 ip.ip[0]
             ))
         except KeyboardInterrupt:
-            return (False, None)
+            return False, None
         took = time.time() - start
         try:
             up = int(result[-1].split(' ')[1])

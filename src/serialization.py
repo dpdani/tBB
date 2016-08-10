@@ -88,8 +88,7 @@ class Serializer(object):
                 for ip in read['MAC_HOSTS'][mac]['history'][entry]:
                     decoded_ips.append(IPElement(ip))
                 host.history[decoded] = tuple(decoded_ips)
-            self.track.trackers[0].mac_hosts[MACElement(mac)] = host  # putting every mac host in the first tracker
-                                                                      # causes issues when comparing from last state in single tracker
+            self.track.trackers[0].mac_hosts[MACElement(mac)] = host
 
     @asyncio.coroutine
     def save(self):

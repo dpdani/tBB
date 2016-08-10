@@ -29,10 +29,12 @@ class FrontendsHandler(object):
         self.port = port
         self.host = host
         self.app = web.Application(logger=logger)
+        self.handler = None  # will be defined at start
+        self.srv = None  # will be defined at start
         if use_ssl:
             self.sslcontext = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
             self.sslcontext.load_cert_chain(certfile=os.path.join(os.getcwd(), "certs", "cert.pem"),
-                                       keyfile=os.path.join(os.getcwd(), "certs", "key.pem"))
+                                            keyfile=os.path.join(os.getcwd(), "certs", "key.pem"))
             self.sslcontext.options |= ssl.OP_NO_SSLv2
             self.sslcontext.options |= ssl.OP_NO_SSLv3
             self.sslcontext.check_hostname = do_checks
@@ -210,7 +212,7 @@ class FrontendsHandler(object):
 
     @coroutine
     def settings_set(self, request):
-        check = self.check_request_input(request, ['what','value'])
+        check = self.check_request_input(request, ['what', 'value'])
         if check is not None:
             return check
         what = request.match_info['what']
@@ -440,10 +442,10 @@ class FrontendsHandler(object):
         from_ = self.check_datetime(request.match_info['from'])
         to = self.check_datetime(request.match_info['to'])
         if as_mac is None:
-            changes = yield from self.tracker.changes([], from_, to, json_compatible=True)  ### !!! also do this in self.ip_host_changes
+            changes = yield from self.tracker.changes([], from_, to, json_compatible=True)
         else:
             changes = yield from self.tracker.changes([MACHost(as_mac)], from_, to, json_compatible=True)
-        return web.Response(status=200, body= \
+        return web.Response(status=200, body=
             json.dumps(changes).encode('utf-8')
         )
 
@@ -456,7 +458,7 @@ class FrontendsHandler(object):
         for host in self.tracker.up_ip_hosts:
             up_hosts.append(host.ip[0])
             yield
-        return web.Response(status=200, body= \
+        return web.Response(status=200, body=
             json.dumps(up_hosts).encode('utf-8')
         )
 
@@ -469,24 +471,25 @@ class FrontendsHandler(object):
         for host in self.tracker.up_mac_hosts:
             up_hosts.append(host.mac)
             yield
-        return web.Response(status=200, body= \
+        return web.Response(status=200, body=
             json.dumps(up_hosts).encode('utf-8')
         )
 
-    def check_request_input(self, input, expected, password=True):
+    def check_request_input(self, input_, expected, password=True):
         if password:
             expected.append('password')
-        if len(input.match_info) != len(expected):
+        if len(input_.match_info) != len(expected):
             return web.Response(status=404)  # NotFound  # aiohttp should do this on its own, but ok
         for exp in expected:
-            if exp not in input.match_info:
+            if exp not in input_.match_info:
                 return web.Response(status=400, body="{} not set.".format(exp).encode('utf-8'))  # BadRequest
         if password:
-            if input.match_info['password'] != self.password:
-                logger.error("somebody tried to access tBB with wrong password. Got: '{}' while password is '{}'.".format(
-                    input.match_info['password'], self.password
+            if input_.match_info['password'] != self.password:
+                logger.error("somebody tried to access tBB with wrong password. "
+                             "Got: '{}' while password is '{}'.".format(
+                                input_.match_info['password'], self.password
                 ))
-                return web.Response(status=401, body=input.match_info['password'].encode('utf-8'))  # Unauthorized
+                return web.Response(status=401, body=input_.match_info['password'].encode('utf-8'))  # Unauthorized
 
     def check_ip(self, ip, check_in_tracker=True):
         try:
@@ -506,14 +509,14 @@ class FrontendsHandler(object):
             return web.Response(status=406, body=b"mac not found.")  # NotAcceptable
         return as_mac
 
-    def check_datetime(self, input, accept_now=True):
+    def check_datetime(self, input_, accept_now=True):
         # expected format: dd.mm.yyyy-hh.mm.ss
         if accept_now:
-            if input == 'now':
+            if input_ == 'now':
                 return datetime.datetime.now()
         try:
             datet = []
-            for got in input.split('-'):
+            for got in input_.split('-'):
                 for g in got.split('.'):
                     datet.append(int(g))
             return datetime.datetime(

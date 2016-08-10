@@ -3,10 +3,10 @@
 import os
 import asyncio
 import sys
-
 from asyncio.streams import StreamWriter, FlowControlMixin
 
 reader, writer = None, None
+
 
 @asyncio.coroutine
 def stdio(loop=None):
@@ -22,6 +22,7 @@ def stdio(loop=None):
     yield from loop.connect_read_pipe(lambda: reader_protocol, sys.stdin)
 
     return reader, writer
+
 
 @asyncio.coroutine
 def async_input(message):
