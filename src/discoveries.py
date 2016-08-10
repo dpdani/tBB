@@ -277,3 +277,24 @@ class SYNDiscovery(DiscoveryMethod):
 
 DefaultSYNDiscovery = SYNDiscovery(ports='22', timeout=1)
 HeavySYNDiscovery = SYNDiscovery(ports='22', timeout=4)
+
+
+class HostNameDiscovery(DiscoveryMethod):
+    def __init__(self):
+        super().__init__("host_name", enabled=True)
+
+    def _run(self, ip):
+        start = time.time()
+        try:
+            result = yield from shell("host {}".format(
+                ip.ip[0],
+            ))
+        except KeyboardInterrupt:
+            return False
+        result = result[0]
+        if result.find('not found') > -1:
+            return False, None
+        else:
+            # e.g.: 90.2.168.192.in-addr.arpa domain name pointer portatile.hogwarts.local.
+            #    filtered_result = -------------------------------^^^^^^^^^^^^^^^^^^^^^^^^
+            return True, result.split(' ')[-1][:-1]
