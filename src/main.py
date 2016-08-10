@@ -24,6 +24,9 @@ from net_elements import *
 loop = asyncio.get_event_loop()
 
 
+original_stdout = sys.stdout.write
+
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 default_time_format = "%d/%m/%Y-%H.%M.%S"
@@ -215,6 +218,8 @@ def read_specific_configuration_file(path, old_config, net):
 
 @asyncio.coroutine
 def developer_cli(globals_, locals_):
+    sys.stdout.write = original_stdout  # prevent complete stdout blocking from silent mode
+    del logging._handlers['console']
     import async_stdio
     import traceback
     print("  ===  Opening console for developer mode.  ===\n"
@@ -330,6 +335,8 @@ def main(args):
     if '--debug' in args:
         logger.setLevel(logging.DEBUG)
         args.remove('--debug')
+    if '--silent' in args:
+        del logging._handlers['console']
     if '--developer' in args:
         developer = True
         args.remove('--developer')
