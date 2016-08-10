@@ -104,10 +104,11 @@ class FrontendsHandler(object):
         self.app.router.add_route('GET', '/ignore_mac/{method}/{mac}/{password}/', self.ignore_mac)
         self.app.router.add_route('GET', '/ignore_name/{method}/{name}/{password}/', self.ignore_name)
         self.app.router.add_route('GET', '/is_ignored/{ip}/{password}/', self.is_ignored)
+        self.app.router.add_route('GET', '/is_mac_ignored/{mac}/{password}/', self.is_mac_ignored)
+        self.app.router.add_route('GET', '/is_name_ignored/{name}/{password}/', self.is_name_ignored)
         self.app.router.add_route('GET', '/ignored_ips/{password}/', self.ignored_ips)
         self.app.router.add_route('GET', '/ignored_macs/{password}/', self.ignored_macs)
         self.app.router.add_route('GET', '/ignored_names/{password}/', self.ignored_names)
-        self.app.router.add_route('GET', '/is_mac_ignored/{mac}/{password}/', self.is_mac_ignored)
         self.app.router.add_route('GET', '/set_priority/{ip}/{value}/{password}/', self.set_priority)
         self.app.router.add_route('GET', '/get_priority/{ip}/{password}/', self.get_priority)
         self.app.router.add_route('GET', '/ip_host_changes/{ip}/{from}/{to}/{password}/', self.ip_host_changes)
@@ -418,10 +419,10 @@ class FrontendsHandler(object):
         check = self.check_request_input(request, ['name'])
         if check is not None:
             return check
-        name = self.check_mac(request.match_info['name'], check_in_tracker=False)
+        name = self.check_name(request.match_info['name'], check_in_tracker=False)
         if isinstance(name, web.Response):
             return name
-        is_ignored = {name.name: name in self.tracker.ignore_name}
+        is_ignored = {name: name in self.tracker.ignore_name}
         return web.Response(status=200, body=
             json.dumps(is_ignored).encode('utf-8')
         )
@@ -462,7 +463,7 @@ class FrontendsHandler(object):
         ignored = []
         for host in self.tracker.ignore_name:
             ignored.append(
-                host.name
+                host
             )
         return web.Response(status=200, body=
             json.dumps(ignored).encode('utf-8')
@@ -610,7 +611,7 @@ class FrontendsHandler(object):
             return check
         up_hosts = []
         for host in self.tracker.up_name_hosts:
-            up_hosts.append(host.name)
+            up_hosts.append(host)
             yield
         return web.Response(status=200, body=
             json.dumps(up_hosts).encode('utf-8')

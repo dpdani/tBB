@@ -597,6 +597,13 @@ class TrackersHandler(object):
         return up_mac_hosts
 
     @property
+    def up_name_hosts(self):
+        up_name_hosts = {}
+        for tr in self.trackers:
+            up_name_hosts.update(tr.up_name_hosts)
+        return up_name_hosts
+
+    @property
     def outer_status(self):
         return [tr.outer_status for tr in self.trackers]
 

@@ -142,7 +142,7 @@ class Serializer(object):
             if ignore.mac not in to_save['TRACKERS_HANDLER']['ignore_mac']:
                 to_save['TRACKERS_HANDLER']['ignore_mac'].append(ignore.mac)
         for ignore in self.track.ignore_name:
-            if ignore.mac not in to_save['TRACKERS_HANDLER']['ignore_name']:
+            if ignore not in to_save['TRACKERS_HANDLER']['ignore_name']:
                 to_save['TRACKERS_HANDLER']['ignore_name'].append(ignore)
         for ip in self.track.priorities:
             if self.track.priorities[ip] != 0:
