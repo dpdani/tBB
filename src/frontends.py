@@ -514,11 +514,11 @@ class FrontendsHandler(object):
             if not isinstance(as_ip, IPElement):
                 return as_ip
         from_ = self.check_datetime(request.match_info['from'])
-        if not isinstance(from_, datetime.datetime):
-            return from_
         to = self.check_datetime(request.match_info['to'])
         if not isinstance(from_, datetime.datetime):
             return from_
+        if not isinstance(to, datetime.datetime):
+            return to
         if as_ip is None:
             changes = yield from self.tracker.ip_changes([], from_, to, json_compatible=True)
         else:
@@ -540,6 +540,10 @@ class FrontendsHandler(object):
                 return as_mac
         from_ = self.check_datetime(request.match_info['from'])
         to = self.check_datetime(request.match_info['to'])
+        if not isinstance(from_, datetime.datetime):
+            return from_
+        if not isinstance(to, datetime.datetime):
+            return to
         if as_mac is None:
             changes = yield from self.tracker.changes([], from_, to, json_compatible=True)
         else:
@@ -561,6 +565,10 @@ class FrontendsHandler(object):
                 return name
         from_ = self.check_datetime(request.match_info['from'])
         to = self.check_datetime(request.match_info['to'])
+        if not isinstance(from_, datetime.datetime):
+            return from_
+        if not isinstance(to, datetime.datetime):
+            return to
         if name is None:
             changes = yield from self.tracker.changes([], from_, to, json_compatible=True)
         else:
