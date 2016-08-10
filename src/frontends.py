@@ -33,10 +33,15 @@ class FrontendsHandler(object):
         self.srv = None  # will be defined at start
         if use_ssl:
             self.sslcontext = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-            self.sslcontext.load_cert_chain(certfile=os.path.join(os.getcwd(), "certs", "cert.pem"),
-                                            keyfile=os.path.join(os.getcwd(), "certs", "key.pem"))
             self.sslcontext.options |= ssl.OP_NO_SSLv2
             self.sslcontext.options |= ssl.OP_NO_SSLv3
+            ca_file_path = os.path.join(os.getcwd(), "certs", "cert.pem")
+            key_file_path = os.path.join(os.getcwd(), "certs", "key.pem")
+            if os.path.isfile(ca_file_path) and os.path.isfile(key_file_path):
+                self.sslcontext.load_cert_chain(certfile=ca_file_path,
+                                                keyfile=key_file_path)
+            else:
+                logger.warning("Running SSL without certificates.")
             self.sslcontext.check_hostname = do_checks
         if loop is None:
             self.loop = asyncio.get_event_loop()
