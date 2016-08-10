@@ -8,6 +8,7 @@ import asyncio
 import os
 import json
 import datetime
+import time
 import logging
 from concurrent.futures import ProcessPoolExecutor
 import tracker
@@ -40,6 +41,7 @@ class Serializer(object):
         self.last_save = datetime.datetime.fromtimestamp(0)
 
     def load(self):
+        start = time.time()
         logger.debug("Loading scan from file {}.".format(self.path))
         net = Network(os.path.splitext(os.path.basename(self.path))[0].replace('\\', '/'))
         with open(self.path, 'r') as f:
@@ -89,6 +91,7 @@ class Serializer(object):
                     decoded_ips.append(IPElement(ip))
                 host.history[decoded] = tuple(decoded_ips)
             self.track.trackers[0].mac_hosts[MACElement(mac)] = host
+        logger.debug("Loading took {:.3f} seconds.".format(time.time() - start))
 
     @asyncio.coroutine
     def save(self):
@@ -97,6 +100,7 @@ class Serializer(object):
         self.last_save = datetime.datetime.now()
 
     def _save(self):
+        start = time.time()
         logger.debug("Saving scan to file {}.".format(self.path))
         to_save = {
             "SESSIONS": {},
@@ -150,6 +154,7 @@ class Serializer(object):
         with open(self.path, 'w') as f:
             json.dump(to_save, f, indent=self.out_indent, sort_keys=self.out_sort_keys)
         self.last_save = datetime.datetime.now()
+        logger.debug("Saving took {:.3f} seconds.".format(time.time() - start))
 
     @asyncio.coroutine
     def keep_saving(self, frequency):
