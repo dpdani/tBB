@@ -214,11 +214,16 @@ def read_specific_configuration_file(path, old_config, net):
 
 
 @asyncio.coroutine
-def tiny_cli(globals_, locals_):
+def developer_cli(globals_, locals_):
     import async_stdio
     import traceback
+    print("  ===  Opening console for developer mode.  ===\n"
+          "||WARNING||: do not use this console unless you know "
+          "what you're doing and do not use developer mode in "
+          "a production environment!\n"
+          "!!! Usage of this mode might cause security issues !!!")
     while True:
-        inp = yield from async_stdio.async_input('$ ')
+        inp = yield from async_stdio.async_input('developer$ ')
         if inp in ('q', 'exit', 'quit'):
             break
         try:
@@ -321,10 +326,15 @@ def main(args):
         return
     if '--verbose' in args:
         logger.setLevel(logging.INFO)
-        del args[args.index('--verbose')]
+        args.remove('--verbose')
     if '--debug' in args:
         logger.setLevel(logging.DEBUG)
-        del args[args.index('--debug')]
+        args.remove('--debug')
+    if '--developer' in args:
+        developer = True
+        args.remove('--developer')
+    else:
+        developer = False
     print((" === tBB - The Big Brother ===\n"
            "Started at: {}\n").format(datetime.datetime.strftime(datetime.datetime.now(), default_time_format)))
     # remove all option arguments before reading requested network
@@ -413,8 +423,8 @@ def main(args):
         track.keep_network_tracked(initial_sleep=True),
         ser.keep_saving(frequency=600)  # every 10 minutes
     ]
-    if not silent:
-        tasks.append(tiny_cli(globals(), locals()))
+    if developer:
+        tasks.append(developer_cli(globals(), locals()))
     tasks = asyncio.gather(*tasks)
     try:
         loop.run_until_complete(tasks)
