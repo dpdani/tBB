@@ -50,6 +50,12 @@ class FrontendsHandler(object):
 
     @staticmethod
     def determine_port(host, starting_port, maximum_port_lookup):
+        """
+        This method searches the first port available
+        after (and including) starting_port.
+        To limit this method from looking up to port 65535,
+        use the maximum_port_lookup argument.
+        """
         port = starting_port
         while True:
             with contextlib.closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:

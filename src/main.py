@@ -192,6 +192,8 @@ def read_configuration_file(path):
 
 def read_specific_configuration_file(path, old_config, net):
     def update(orig_dict, new_dict):
+        if isinstance(orig_dict, datetime.timedelta):
+            return datetime.timedelta(minutes=new_dict['minutes'], seconds=new_dict['seconds'])
         for key, val in new_dict.items():
             if isinstance(val, collections.Mapping):
                 tmp = update(orig_dict.get(key, {}), val)
