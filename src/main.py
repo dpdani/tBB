@@ -364,9 +364,22 @@ def main(args):
         least_record_update_seconds = 3600
     logger.info("Monitoring network {}.".format(net))
     loaded_from_record = False
+    if 'serialization' in config:
+        if 'indent' in config['serialization']:
+            indent = config['serialization']['indent']
+        if 'do_sort' in config['serialization']:
+            sort = config['serialization']['do_sort']
+    try:
+        indent
+    except NameError:
+        indent = 4
+    try:
+        sort
+    except NameError:
+        sort = True
     if os.path.exists(serialization.path_for_network(net)):
         logger.info("Found scan on record. Loading...")
-        ser = serialization.Serializer(network=net)
+        ser = serialization.Serializer(network=net, out_indent=indent, out_sort_keys=sort)
         ser.load()
         track = ser.track
         loaded_from_record = True
@@ -379,7 +392,7 @@ def main(args):
         except KeyError:
             pass
         track = tracker.TrackersHandler(net, hosts)
-        ser = serialization.Serializer(network=net, track=track)
+        ser = serialization.Serializer(network=net, track=track, out_indent=indent, out_sort_keys=sort)
         track.serializer = ser
     configure_tracker(track, config)
     with open(password_file_path, 'r') as f:
