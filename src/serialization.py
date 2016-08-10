@@ -130,10 +130,11 @@ class Serializer(object):
                 'mac_history': {},
                 'is_up_history': {},
                 'discovery_history': {},
+                'name_history': {},
                 'last_check': host.last_check.timestamp(),
                 'last_seen': host.last_seen.timestamp()
             }
-            for history_name in ('mac', 'is_up', 'discovery'):
+            for history_name in ('mac', 'is_up', 'discovery', 'name'):
                 history_name += "_history"
                 history = getattr(host, history_name)
                 for entry in history:

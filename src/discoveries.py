@@ -292,9 +292,16 @@ class HostNameDiscovery(DiscoveryMethod):
         except KeyboardInterrupt:
             return False
         result = result[0]
+        filtered_result = result.split(' ')[-1][:-1]
+        # e.g.: 90.2.168.192.in-addr.arpa domain name pointer portatile.hogwarts.local.
+        #    filtered_result = -------------------------------^^^^^^^^^^^^^^^^^^^^^^^^
+        took = time.time() - start
+        # TODO: network congestion check
         if result.find('not found') > -1:
+            logger.debug("Host name of IP '{}' resulted '{}'.".format(ip, 'not found'))
             return False, None
         else:
-            # e.g.: 90.2.168.192.in-addr.arpa domain name pointer portatile.hogwarts.local.
-            #    filtered_result = -------------------------------^^^^^^^^^^^^^^^^^^^^^^^^
-            return True, result.split(' ')[-1][:-1]
+            if filtered_result == '':
+                filtered_result = 'empty-name'
+            logger.debug("Host name of IP '{}' resulted '{}'.".format(ip, filtered_result))
+            return True, filtered_result

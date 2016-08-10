@@ -33,6 +33,7 @@ class Tracker(object):
             discoveries.DefaultSYNDiscovery
         ]
         self.arp = discoveries.DefaultARPDiscovery
+        self.name_discovery = discoveries.HostNameDiscovery()
         self.time_between_checks = datetime.timedelta(minutes=0, seconds=0)
         self.maximum_seconds_randomly_added = 0
         self._outer_status = 'initialized'  # supply information to front-ends
@@ -198,6 +199,7 @@ class Tracker(object):
                 logger.error("Found broadcast at {}. Ignoring IP from now on.".format(ip))
                 self.ignore.append(ip)
             return False
+        name = (yield from self.name_discovery.run(ip))[1]
         # detecting is_up...
         for discovery in self.discoveries:
             if discovery.enabled:
@@ -216,9 +218,12 @@ class Tracker(object):
                     method = None
         # detecting changes and finishing...
         self.status = "scanning ip '{}' - finishing.".format(ip)
-        ip_changed = self.ip_hosts[ip].update(mac, method, is_up)
+        ip_changed = self.ip_hosts[ip].update(mac, method, is_up, name)
         if 'mac' in ip_changed[1]:
-            self.mac_hosts[MACElement(self.ip_hosts[ip].second_last_mac)].update_ip_disconnected(ip)
+            try:
+                self.mac_hosts[MACElement(self.ip_hosts[ip].second_last_mac)].update_ip_disconnected(ip)
+            except (KeyError, TypeError):  # second_last_mac is None
+                pass  # don't update it
         mac_elem = MACElement(str(mac))  # mac converted to str in order to prevent TypeErrors
         if mac_elem not in self.mac_hosts and mac is not None:
             host = MACHost(mac_elem)
@@ -235,7 +240,7 @@ class Tracker(object):
             else:
                 mac_changed = (False, '')
         if ip_changed[0] or mac_changed[0] or self.force_notify:
-            yield from self.fire_notifiers(ip, mac, method, is_up, ip_changed[1], mac_changed[1])
+            yield from self.fire_notifiers(ip, mac, name, method, is_up, ip_changed[1], mac_changed[1])
         return is_up
 
     @coroutine
@@ -308,7 +313,7 @@ class Tracker(object):
         return priorities[max(priorities)]
 
     @coroutine
-    def fire_notifiers(self, ip, mac, method, is_up, ip_what, mac_what):
+    def fire_notifiers(self, ip, mac, name, method, is_up, ip_what, mac_what):
         if ip_what is None:
             ip_what = ''
         if mac_what is None:
@@ -318,7 +323,9 @@ class Tracker(object):
         what = "IP(" + ip_what + ") MAC(" + mac_what + ")"
         if mac is None:
             mac = 'mac-not-found'
-        logger.info("{}@{} changed {}. method: {}, is_up: {}.".format(ip.ip[0], mac, what, method, is_up))
+        if name is None:
+            name = 'name-not-found'
+        logger.info("{}@{}({}) changed {}. method: {}, is_up: {}.".format(ip.ip[0], mac, name, what, method, is_up))
         if self.serializer is not None:
             self.status = "saving changes."
             yield from self.serializer.save()
@@ -636,6 +643,15 @@ class TrackersHandler(object):
             tr.arp = value
 
     @property
+    def name_discovery(self):
+        return [tr.name_discovery for tr in self.trackers]
+
+    @name_discovery.setter
+    def name_discovery(self, value):
+        for tr in self.trackers:
+            tr.name_discovery = value
+
+    @property
     def serializer(self):
         sers = []
         for tr in self.trackers:
@@ -713,7 +729,7 @@ class TrackersHandler(object):
         return sum(ups)
 
 # track.time_between_checks = datetime.timedelta(minutes=0, seconds=0); track.maximum_seconds_randomly_added = 0
-# track.ip_hosts[IPElement("192.168.11.244/24")].print_histories()
+# track.ip_hosts[IPElement("192.168.2.109/24")].print_histories()
 # track.mac_hosts[MACElement("FC:3F:7C:5C:00:D0")].print_histories()
 # for tr in track.trackers: print(tr.network, tr.status)
 # for tr in track.trackers: print(tr.network, tr.discoveries[1].enabled)

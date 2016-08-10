@@ -328,6 +328,7 @@ class IPHost(object):
         self.mac_history = {}
         self.is_up_history = {}
         self.discovery_history = {}
+        self.name_history = {}
         self.last_check = datetime.datetime.fromtimestamp(0)
         self.last_seen = datetime.datetime.fromtimestamp(0)
 
@@ -350,6 +351,13 @@ class IPHost(object):
     def mac(self):
         try:
             return self.mac_history[sorted(self.mac_history.keys())[-1]]
+        except IndexError:  # history is empty
+            return None
+
+    @property
+    def name(self):
+        try:
+            return self.name_history[sorted(self.name_history.keys())[-1]]
         except IndexError:  # history is empty
             return None
 
@@ -380,7 +388,10 @@ class IPHost(object):
     def add_to_is_up_history(self, stuff):
         self.is_up_history[self.last_check] = stuff
 
-    def update(self, mac, method, is_up):
+    def add_to_name_history(self, stuff):
+        self.name_history[self.last_check] = stuff
+
+    def update(self, mac, method, is_up, name):
         self.last_check = datetime.datetime.now()
         if is_up:
             self.last_seen = self.last_check
@@ -398,6 +409,10 @@ class IPHost(object):
             self.add_to_is_up_history(is_up)
             changed = True
             what.append('is_up')
+        if name != self.name and name is not None:
+            self.add_to_name_history(name)
+            changed = True
+            what.append('name')
         what = ' '.join(what)
         return changed, what
 
@@ -411,6 +426,9 @@ class IPHost(object):
         print("DISCOVERY HISTORY FOR IPHOST: {}".format(repr(self)))
         for entry in sorted(self.discovery_history):
             print(entry, " - ", self.discovery_history[entry])
+        print("NAME HISTORY FOR IPHOST: {}".format(repr(self)))
+        for entry in sorted(self.name_history):
+            print(entry, " - ", self.name_history[entry])
 
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
