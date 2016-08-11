@@ -298,7 +298,7 @@ def main(args):
         return
     password_file_path = os.path.join(os.getcwd(), 'tBB_access_password')
     if not os.path.exists(password_file_path):
-        logger.critical("couldn't find password file.")
+        logger.critical("Couldn't find password file!!! Aborting.")
         return
     password_file_mode = oct(os.stat(password_file_path).st_mode)[-3:]
     if password_file_mode != '600':
@@ -314,28 +314,22 @@ def main(args):
             "{}\n"
             "\n"
             "Usage:\n"
-            "    tBB [OPTIONS] networkIp: opens tBB and monitors network 'networkIp'.\n"
+            "    tBB [OPTIONS] network: opens tBB and monitors network 'network'.\n"
             "    tBB [OPTIONS]: opens tBB and monitors network specified in the configuration\n"
             "                   file. If no configuration file is found or the default\n"
             "                   network is not set, tBB will ask for a network IP in the\n"
-            "                   command prompt.\n"
+            "                   command prompt. Note: when launched this way, tBB won't\n"
+            "                   look for any network-specific configuration files.\n"
             "\n"
             "Options:\n"
             "    --help: show this message and exit.\n"
-            "    --verbose: display information about host connecting/disconnecting and\n"
-            "               other information that would not be normally displayed.\n"
-            "    --debug: display debug information. Implicitly shows --verbose information.\n"
+            "    --debug: display debug information.\n"
             "    --silent: display nothing.\n"
-            "    --no-arp: don't run ARP discoveries.\n"
-            "    --no-icmp: don't run ICMP discoveries.\n"
-            "    --no-syn: don't run SYN discoveries.\n").format(__doc__.strip()))
-        # TODO: implement --no-*
+            "    --developer: open a developer console (even in silent mode). WARNING: "
+            "This console might be very dangerous if not used correctly.\n").format(__doc__.strip()))
         return
-    if '--verbose' in args:
-        logger.setLevel(logging.INFO)
-        args.remove('--verbose')
     if '--debug' in args:
-        logger.setLevel(logging.DEBUG)
+        logging._handlers['console'].setLevel(logging.DEBUG)
         args.remove('--debug')
     if '--silent' in args:
         del logging._handlers['console']
