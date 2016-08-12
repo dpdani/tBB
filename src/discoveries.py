@@ -295,20 +295,21 @@ class HostNameDiscovery(DiscoveryMethod):
             ))
         except KeyboardInterrupt:
             return False
-        result = result[0]
-        try:
-            filtered_result = result.split(' ')[-1][:-1]
-        except:
-            raise HostNameParsingException(ip, result)
+        filtered_result = []
+        for res in result:
+            if res.find('not found') > -1:
+                logger.debug("Host name of IP '{}' resulted 'not found'.".format(ip))
+                return False, tuple()
+            try:
+                res = res.split(' ')[-1][:-1]
+                if res == '':
+                    res = 'empty-name'
+                filtered_result.append(res)
+            except:
+                raise HostNameParsingException(ip, result)
         # e.g.: 90.2.168.192.in-addr.arpa domain name pointer portatile.hogwarts.local.
         #    filtered_result = -------------------------------^^^^^^^^^^^^^^^^^^^^^^^^
         took = time.time() - start
         # TODO: network congestion check
-        if result.find('not found') > -1:
-            logger.debug("Host name of IP '{}' resulted '{}'.".format(ip, 'not found'))
-            return False, None
-        else:
-            if filtered_result == '':
-                filtered_result = 'empty-name'
-            logger.debug("Host name of IP '{}' resulted '{}'.".format(ip, filtered_result))
-            return True, filtered_result
+        logger.debug("Host name of IP '{}' resulted '{}'.".format(ip, filtered_result))
+        return True, tuple(sorted(filtered_result))

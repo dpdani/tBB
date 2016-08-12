@@ -83,6 +83,11 @@ class Serializer(object):
                 for entry in read['IP_HOSTS'][ip][history_name]:
                     decoded = datetime.datetime.fromtimestamp(float(entry))
                     history[decoded] = read['IP_HOSTS'][ip][history_name][entry]
+                    if history_name == 'name_history':
+                        # print("name_history")
+                        # print(history[decoded])
+                        history[decoded] = tuple(history[decoded])
+                        # print(history[decoded])
         for mac in read['MAC_HOSTS']:
             try:
                 host = self.track.mac_hosts[MACElement(mac)]

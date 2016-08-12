@@ -227,7 +227,7 @@ class Tracker(object):
                 logger.error("Found broadcast at {}. Ignoring IP from now on.".format(ip))
                 self.ignore.append(ip)
             return False
-        name = (yield from self.name_discovery.run(ip))[1]
+        names = (yield from self.name_discovery.run(ip))[1]
         # detecting is_up...
         for discovery in self.discoveries:
             if discovery.enabled:
@@ -246,7 +246,7 @@ class Tracker(object):
                     method = None
         # detecting changes and finishing...
         self.status = "scanning ip '{}' - finishing.".format(ip)
-        ip_changed = self.ip_hosts[ip].update(mac, method, is_up, name)
+        ip_changed = self.ip_hosts[ip].update(mac, method, is_up, names)
         if 'mac' in ip_changed[1]:
             try:
                 self.mac_hosts[MACElement(self.ip_hosts[ip].second_last_mac)].update_ip_disconnected(ip)
@@ -272,22 +272,27 @@ class Tracker(object):
                 mac_changed = self.mac_hosts[MACElement(mac)].update(ip)
             else:
                 mac_changed = (False, '')
-        if name not in self.name_hosts and name is not None:
-            host = NameHost(name)
-            self.name_hosts[name] = host
-        if name is not None:
-            if name not in self.ignore_name:
-                name_changed = self.name_hosts[name].update(ip)
-            else:
-                name_changed = (False, '')
-        else:
+        names_changed = []
+        for name in names:
+            if name not in self.name_hosts and name is not None:
+                host = NameHost(name)
+                self.name_hosts[name] = host
+            if name is not None:
+                if name not in self.ignore_name:
+                    names_changed.append(self.name_hosts[name].update(ip))
+                else:
+                    names_changed.append((False, ''))
+        if len(names) == 0:
             if self.ip_hosts[ip].name is not None:  # name went down
-                name = self.ip_hosts[ip].name
-                name_changed = self.name_hosts[name].update(ip)
+                names = self.ip_hosts[ip].name
+                for name in names:
+                    names_changed.append(self.name_hosts[name].update(ip))
             else:
-                name_changed = (False, '')
-        if ip_changed[0] or mac_changed[0] or name_changed[0] or self.force_notify:
-            yield from self.fire_notifiers(ip, mac, name, method, is_up, ip_changed[1], mac_changed[1], name_changed[1])
+                names_changed.append((False, ''))
+        for name, name_changed in map(lambda *args: args, names, names_changed):
+            if ip_changed[0] or mac_changed[0] or name_changed[0] or self.force_notify:
+                yield from self.fire_notifiers(ip, mac, name, method, is_up,
+                                               ip_changed[1],mac_changed[1], name_changed[1])
         return is_up
 
     @coroutine
@@ -833,7 +838,7 @@ class TrackersHandler(object):
         return sum(ups)
 
 # track.time_between_checks = datetime.timedelta(minutes=0, seconds=0); track.maximum_seconds_randomly_added = 0
-# track.ip_hosts[IPElement("192.168.2.109/24")].print_histories()
+# track.ip_hosts[IPElement("10.224.2.85/24")].print_histories()
 # track.mac_hosts[MACElement("FC:3F:7C:5C:00:D0")].print_histories()
 # for tr in track.trackers: print(tr.network, tr.status)
 # for tr in track.trackers: print(tr.network, tr.discoveries[1].enabled)

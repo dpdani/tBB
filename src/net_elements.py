@@ -416,7 +416,7 @@ class IPHost(object):
             self.add_to_is_up_history(is_up)
             changed = True
             what.append('is_up')
-        if name != self.name and name is not None:
+        if name != self.name and name != ():
             self.add_to_name_history(name)
             changed = True
             what.append('name')
