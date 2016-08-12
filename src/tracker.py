@@ -139,8 +139,11 @@ class Tracker(object):
             if ip in self.ignore:
                 logger.debug("Ignoring (found in self.ignore): {}".format(ip))
                 continue
-            if (yield from self.do_single_scan(ip)):
-                up += 1
+            try:
+                if (yield from self.do_single_scan(ip)):
+                    up += 1
+            except discoveries.ParsingException as exc:
+                logger.error("Error while parsing: {}".format(exc))
         self.serializer = ser  # reconnecting serializer
         return up
 
@@ -174,8 +177,11 @@ class Tracker(object):
             if ip in self.ignore:
                 logger.debug("Ignoring (found in self.ignore): {}".format(ip))
                 continue
-            if (yield from self.do_single_scan(ip)):
-                up += 1
+            try:
+                if (yield from self.do_single_scan(ip)):
+                    up += 1
+            except discoveries.ParsingException as exc:
+                logger.error("Error while parsing: {}".format(exc))
             ip += 1
         return up
 
