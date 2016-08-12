@@ -44,6 +44,7 @@ class Tracker(object):
         self.serializer = None
         self.force_notify = False
         self.auto_ignore_broadcasts = True
+        self.warn_parsing_exception = True
 
     @property
     def up_hosts(self):
@@ -143,7 +144,10 @@ class Tracker(object):
                 if (yield from self.do_single_scan(ip)):
                     up += 1
             except discoveries.ParsingException as exc:
-                logger.error("Error while parsing: {}".format(exc))
+                if self.warn_parsing_exception:
+                    logger.error("Error while parsing: {}".format(exc))
+                else:
+                    logger.debug("Error while parsing: {}".format(exc))
         self.serializer = ser  # reconnecting serializer
         return up
 
@@ -181,7 +185,10 @@ class Tracker(object):
                 if (yield from self.do_single_scan(ip)):
                     up += 1
             except discoveries.ParsingException as exc:
-                logger.error("Error while parsing: {}".format(exc))
+                if self.warn_parsing_exception:
+                    logger.error("Error while parsing: {}".format(exc))
+                else:
+                    logger.debug("Error while parsing: {}".format(exc))
             ip += 1
         return up
 
@@ -308,7 +315,10 @@ class Tracker(object):
             try:
                 yield from self.do_single_scan(host)
             except discoveries.ParsingException as exc:
-                logger.error("Error while parsing: {}".format(exc))
+                if self.warn_parsing_exception:
+                    logger.error("Error while parsing: {}".format(exc))
+                else:
+                    logger.debug("Error while parsing: {}".format(exc))
             sleep_for = self.time_between_checks.total_seconds() + \
                         random.randint(0, self.maximum_seconds_randomly_added)
             host = self.highest_priority_host()
@@ -644,6 +654,15 @@ class TrackersHandler(object):
     def auto_ignore_broadcasts(self, value):
         for tr in self.trackers:
             tr.auto_ignore_broadcasts = value
+
+    @property
+    def warn_parsing_exception(self):
+        return [tr.warn_parsing_exception for tr in self.trackers]
+
+    @warn_parsing_exception.setter
+    def warn_parsing_exception(self, value):
+        for tr in self.trackers:
+            tr.warn_parsing_exception = value
 
     @property
     def ip_hosts(self):

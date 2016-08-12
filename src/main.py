@@ -326,7 +326,8 @@ def main(args):
             "    --debug: display debug information.\n"
             "    --silent: display nothing.\n"
             "    --developer: open a developer console (even in silent mode). WARNING: "
-            "This console might be very dangerous if not used correctly.\n").format(__doc__.strip()))
+            "This console might be very dangerous if not used correctly.\n"
+            "    --warn-parsing: display parsing errors.\n").format(__doc__.strip()))
         return
     if '--debug' in args:
         logging._handlers['console'].setLevel(logging.DEBUG)
@@ -338,6 +339,11 @@ def main(args):
         args.remove('--developer')
     else:
         developer = False
+    if '--warn-parsing' in args:
+        warn_parsing = True
+        args.remove('--warn-parsing')
+    else:
+        warn_parsing = False
     print((" === tBB - The Big Brother ===\n"
            "Started at: {}\n").format(datetime.datetime.strftime(datetime.datetime.now(), default_time_format)))
     # remove all option arguments before reading requested network
@@ -391,6 +397,7 @@ def main(args):
         ser = serialization.Serializer(network=net, track=track, out_indent=indent, out_sort_keys=sort)
         track.serializer = ser
     configure_tracker(track, config)
+    track.warn_parsing_exception = warn_parsing
     with open(password_file_path, 'r') as f:
         password = f.read().strip()
     frontends_handler = frontends.FrontendsHandler(track, password,
