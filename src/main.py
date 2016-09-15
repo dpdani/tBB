@@ -286,8 +286,8 @@ def main(args):
         )
     except:
         logger.critical("Couldn't find appropriate port with given configuration: host: '{}', starting port: '{}', "
-                        "maximum tries: '{}'. Got exception:".format(config['socket_host'], config['port'],
-                                                                     config['maximum_port_lookup']),
+                        "maximum tries: '{}'. Got exception:".format(config['frontends_socket']['host'], config['frontends_socket']['port'],
+                                                                     config['frontends_socket']['maximum_port_lookup']),
                         exc_info=True
         )
         return
