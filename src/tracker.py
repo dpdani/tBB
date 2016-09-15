@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 """
 
 Tracker implementation.
@@ -844,7 +846,7 @@ class TrackersHandler(object):
 # for tr in track.trackers: print(tr.network, tr.discoveries[1].enabled)
 # print(track.time_between_checks)
 # print(track.trackers[0].discoveries[1].enabled)
-# print(track.ip_hosts[IPElement("192.168.2.100/")])
+# print(track.ip_hosts[IPElement("192.168.2.100/23")])
 # track.ignore_mac = [MACElement("00:1B:0D:59:51:C2")]
 # print(track.changes(hosts=[IPHost(IPElement("192.168.2.36/23"))], from_=datetime.datetime.fromtimestamp(0), to=datetime.datetime.now()))
 # GET /mac_host_changes/48:51:b7:2b:88:60/1.1.1-1.1.1/now/ciao/ HTTP/1.0

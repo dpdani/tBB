@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 """
 
 tBB - The Big Brother.
@@ -6,6 +8,7 @@ and changes in the specified network.
 For further information open tBB/docs/.
 
 """
+
 import os
 import socket
 import sys

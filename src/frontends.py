@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 """
 
 This module helps handling tBB front-ends.
