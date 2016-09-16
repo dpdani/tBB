@@ -853,15 +853,3 @@ class TrackersHandler(object):
         ups = yield from asyncio.gather(*tasks)
         return sum(ups)
 
-# track.time_between_checks = datetime.timedelta(minutes=0, seconds=0); track.maximum_seconds_randomly_added = 0
-# track.ip_hosts[IPElement("10.224.2.85/24")].print_histories()
-# track.mac_hosts[MACElement("FC:3F:7C:5C:00:D0")].print_histories()
-# for tr in track.trackers: print(tr.network, tr.status)
-# for tr in track.trackers: print(tr.network, tr.discoveries[1].enabled)
-# print(track.time_between_checks)
-# print(track.trackers[0].discoveries[1].enabled)
-# print(track.ip_hosts[IPElement("192.168.2.100/23")])
-# track.ignore_mac = [MACElement("00:1B:0D:59:51:C2")]
-# print(track.changes(hosts=[IPHost(IPElement("192.168.2.36/23"))], from_=datetime.datetime.fromtimestamp(0), to=datetime.datetime.now()))
-# GET /mac_host_changes/48:51:b7:2b:88:60/1.1.1-1.1.1/now/ciao/ HTTP/1.0
-# GET /ip_host_changes/192.168.2.44/1.1.1-1.1.1/now/ciao/ HTTP/1.0
