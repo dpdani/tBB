@@ -26,7 +26,7 @@ import os
 import asyncio
 from asyncio import coroutine
 
-path = os.path.abspath(os.path.join(os.getcwd(), '..', 'src'))
+path = os.path.abspath(os.path.join(os.getcwd(), '..', 'tBB', 'tBB'))
 if path not in sys.path:
     sys.path.append(path)
 

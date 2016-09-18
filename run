@@ -4,4 +4,4 @@
 # The folder in which this file is located is
 # the folder tBB should be run from.
 
-python3.4 src/main.py "$@"
+python3.4 tBB/main.py "$@"
