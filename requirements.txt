@@ -1,2 +1,1 @@
-python==3.4
-aiohttp==0.22.2
+aiohttp>=0.22.2
