@@ -1,0 +1,4 @@
+This file is used to allow setuptools to correctly package tBB
+to include the scans/ folder.
+This file may be deleted at any time.
+
