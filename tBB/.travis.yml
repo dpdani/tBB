@@ -1,0 +1,11 @@
+language:
+  python
+python:
+  - "3.4"
+before_install:
+  - sudo apt-get -qq update
+  - sudo apt-get install -y iputils-arping
+install:
+  - "pip install -r requirements.txt"
+script:
+  - pytest tests/
