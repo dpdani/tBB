@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='tBB',
-    version='0.1b0',
+    version='0.1.0b0',
     description='A network monitoring tool written in Python.',
     long_description=open('README.md').read(),
     license='GPLv3',
@@ -18,13 +18,22 @@ setup(
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
     ],
     keywords='network security',
-    data_files=[
-        ('certs', 'certs/key.pem'),
-        ('certs', 'certs/cert.pem'),
-    ],
+    #data_files=[
+    #    ('certs', 'certs/key.pem'),
+    #    ('certs', 'certs/cert.pem'),
+    #],
     entry_points={
         'console_scripts': [
             'tBB=tBB.main'
         ]
+    },
+    package_data={
+        'tBB': [
+             'LICENSE',
+             'README.md',
+             'run',
+             'scans/DELETEME',
+             'certs/*',
+         ],
     }
 )
