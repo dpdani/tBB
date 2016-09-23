@@ -10,7 +10,7 @@ script:
 - pytest tests/
 deploy:
   provider: launchpad
-  slug: "~dani-parmeggiani/tbb/trunk"
+  slug: "~dani-parmeggiani/tbb/master"
   oauth_token:
     secure: l4hyMn97nF7CxN/ZAxCWlGjOijEjL4UoKAgm+CszS9hVpd/PC2D5wcx27c8emoa8c2XDu1MrzwoHtBx07ceqmuj5d54Qw9rbZssFBbtcLPE1w69U1MAeHovSJcA5q5TGqcj1nB0tPhkR5nVPBGrI4NBq8ZRLDbKwr1TzDW0AlQmMdlOSoL8Ce7t3nRNLQJdgPtenuxNQDY+KbhIy/RD/13D/sqjJXt+5JHoymZgaOt9xtKAc+thsVgYtv+uO9xpq1PeFU2uZKJ+rgR9jc5sjRI40D5BfK++rGkYjwTIiFx3zh06BBDcLZc1mdSC1yzxat7Xp2zhOoD24JfGbulhdEucz97gq3FokDZ3ULAQhT0XEr36F7w+9apVXZ9oxid0mfmc29gP9GFrOmn5gdLmVcxptL4G9LydF85f963q2PHEjodgYqxzTtf0yrZM/rIBXuAgPr1SaJZG/Ha+RFhGAKYDCFREomtpZi8/5nvweL88kBNWZi/FwTFqra6WU8a6X7adJyzKaDO1oqUbMe/1DxIjWukOYdAMZ7fCczbNIBAo/Pwm0G3tTv4wYtwFqZF3W00n9wA0WZm8u8D3YCwOV53t2OWXwF2+s8Cv4MZ5FR1oK0bx5Nji/DLw9pKZsY9VkOIxm9rNmcTvmshuq69/e5GO1Pz1+uzPc1vgsP08M2LM=
   oauth_token_secret:
