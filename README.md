@@ -1,3 +1,6 @@
+### Current status
+![Travis Status](https://travis-ci.org/dpdani/tBB.svg?branch=master)
+
 # tBB
 A network monitoring tool written in Python.
 
