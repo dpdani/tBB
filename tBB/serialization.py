@@ -27,19 +27,19 @@ import datetime
 import time
 import logging
 from concurrent.futures import ProcessPoolExecutor
+import paths
 import tracker
 from net_elements import *
 
 
 start_datetime = datetime.datetime.now()
-default_saving_path = os.path.join(os.getcwd(), "scans")
 
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-def path_for_network(network, saving_path=default_saving_path, suffix='.tbbscan'):
+def path_for_network(network, saving_path=paths.scans, suffix='.tbbscan'):
     return os.path.join(saving_path, network.as_string().replace('/', '\\') + suffix)
 
 

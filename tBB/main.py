@@ -33,10 +33,15 @@ import logging.handlers
 import json
 import asyncio
 import collections
+
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+import paths
 import tracker
 import serialization
 import frontends
 from net_elements import *
+
 
 loop = asyncio.get_event_loop()
 
@@ -259,15 +264,22 @@ def developer_cli(globals_, locals_):
     loop.stop()
 
 
-def main(args):
+def main(args=None):
+    if args is None:
+        args = sys.argv[1:]
     silent = False
     if '--silent' in args:
         silent = True
         def write(*args, **kwargs):
             pass
         sys.stdout.write = write
+    try:
+        paths.check_required_paths()
+    except Exception as exc:
+        logger.exception("Couldn't create required folders for tBB. Cannot start tBB. Here's full exception.")
+        return
     config = read_configuration_file(
-        os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config_default.json"))
+        os.path.abspath(os.path.join(paths.configs, "config_default.json"))
     )
     if len(args) > 0:
         netip = args[0]
@@ -277,7 +289,7 @@ def main(args):
             pass
         else:
             specific_configuration_file_path = os.path.abspath(os.path.join(
-                os.path.dirname(os.path.abspath(__file__)), "..", "config_{}.json".format(
+                paths.configs, "config_{}.json".format(
                     serialization.path_for_network(net, saving_path='', suffix='')
                 )
             ))
@@ -313,7 +325,7 @@ def main(args):
     if os.geteuid() != 0:
         logger.critical("tBB requires root privileges to be run.")
         return
-    password_file_path = os.path.join(os.getcwd(), 'tBB_access_password')
+    password_file_path = os.path.join(paths.root, 'tBB_access_password')
     if not os.path.exists(password_file_path):
         logger.critical("Couldn't find password file!!! Aborting.")
         return

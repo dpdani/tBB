@@ -31,6 +31,7 @@ import socket  # only used for open port checking
 import contextlib  # only used for open port checking
 from aiohttp import web
 from asyncio import coroutine
+import paths
 from net_elements import *
 
 
@@ -48,8 +49,8 @@ class FrontendsHandler(object):
         self.handler = None  # will be defined at start
         self.srv = None  # will be defined at start
         if use_ssl:
-            ca_file_path = os.path.join(os.getcwd(), "certs", "cert.pem")
-            key_file_path = os.path.join(os.getcwd(), "certs", "key.pem")
+            ca_file_path = os.path.join(paths.certs, "cert.pem")
+            key_file_path = os.path.join(paths.certs, "key.pem")
             if os.path.isfile(ca_file_path) and os.path.isfile(key_file_path):
                 self.sslcontext = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
                 self.sslcontext.options |= ssl.OP_NO_SSLv2

@@ -24,7 +24,7 @@ setup(
     #],
     entry_points={
         'console_scripts': [
-            'tBB=tBB.main'
+            'tBB=tBB.main:main'
         ]
     },
     package_data={
