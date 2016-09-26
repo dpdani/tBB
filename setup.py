@@ -31,9 +31,6 @@ setup(
         'tBB': [
              'LICENSE',
              'README.md',
-             'run',
-             'scans/DELETEME',
-             'certs/*',
          ],
     }
 )

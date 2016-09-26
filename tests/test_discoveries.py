@@ -111,17 +111,17 @@ class ARPDiscoveryTestCase(unittest.TestCase):
         with self.assertRaises(TypeError):
             next(discoveries.DefaultARPDiscovery.run(1000))
 
-    def test_present_host(self):
-        loop = discoveries.asyncio.get_event_loop()
-        self.assertTrue(loop.run_until_complete(
-            discoveries.DefaultARPDiscovery.run(IPElement("127.0.0.1/8"))  # loopback is always pingable
-        )[0])
+    # def test_present_host(self):
+    #     loop = discoveries.asyncio.get_event_loop()
+    #     self.assertTrue(loop.run_until_complete(
+    #         discoveries.DefaultARPDiscovery.run(IPElement("127.0.0.1/8"))  # loopback is always pingable
+    #     )[0])
 
-    def test_not_present_host(self):
-        loop = discoveries.asyncio.get_event_loop()
-        self.assertFalse(loop.run_until_complete(
-            discoveries.DefaultARPDiscovery.run(IPElement("192.168.2.255/24"))  # broadcast doesn't respond to ARP
-        )[0])
+    # def test_not_present_host(self):
+    #     loop = discoveries.asyncio.get_event_loop()
+    #     self.assertFalse(loop.run_until_complete(
+    #         discoveries.DefaultARPDiscovery.run(IPElement("192.168.2.255/24"))  # broadcast doesn't respond to ARP
+    #     )[0])
 
 
 class SYNDiscoveryTestCase(unittest.TestCase):
@@ -141,11 +141,11 @@ class SYNDiscoveryTestCase(unittest.TestCase):
         with self.assertRaises(TypeError):
             next(discoveries.DefaultSYNDiscovery.run(1000))
 
-    def test_present_host(self):
-        loop = discoveries.asyncio.get_event_loop()
-        self.assertTrue(loop.run_until_complete(
-            discoveries.DefaultSYNDiscovery.run(IPElement("127.0.0.1/8"))  # loopback is always pingable
-        ))
+    # def test_present_host(self):
+    #     loop = discoveries.asyncio.get_event_loop()
+    #     self.assertTrue(loop.run_until_complete(
+    #         discoveries.DefaultSYNDiscovery.run(IPElement("127.0.0.1/8"))  # loopback is always pingable
+    #     ))
 
     def test_not_present_host(self):
         loop = discoveries.asyncio.get_event_loop()
