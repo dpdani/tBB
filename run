@@ -5,4 +5,4 @@
 # the folder tBB should be run from.
 
 
-python3.5 tBB/main.py "$@"
+python3 tBB/main.py "$@"
