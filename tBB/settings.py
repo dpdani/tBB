@@ -120,7 +120,7 @@ class SettingsItem:
         try:
             tmp = datetime.datetime.strptime(value, timedelta_parse_string)
             return datetime.timedelta(minutes=tmp.minute, seconds=tmp.second)
-        except ValueError as exc:
+        except (ValueError, TypeError) as exc:
             raise ConversionException(value, SettingsTypes.timedelta) from exc
 
     @staticmethod
