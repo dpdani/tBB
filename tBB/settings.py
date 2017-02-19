@@ -59,6 +59,7 @@ class SettingsTypes(enum.Enum):
     boolean = 2  # need no conversion
     timedelta = 3
     settings_item = 4
+    list = 5
 
 
 class SettingsItem:
@@ -103,6 +104,8 @@ class SettingsItem:
                 self.value_type = SettingsTypes.integer
             elif type(self.value) == bool:
                 self.value_type = SettingsTypes.boolean
+            elif type(self.value) == list:
+                self.value_type = SettingsTypes.list
             elif type(self.value) == dict:
                 try:
                     self.value = self.convert_to_settings_item(self.value)
@@ -160,6 +163,9 @@ class Settings:
         self.tree = tree
 
     def update(self, new_tree, scope=''):
+        if not isinstance(new_tree, SettingsItem):
+            raise TypeError("expected SettingsItem instance for argument tree. "
+                            "Got: '{}'.".format(new_tree))
         try:
             iter(new_tree.value)
         except TypeError:
