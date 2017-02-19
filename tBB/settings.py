@@ -32,16 +32,19 @@ class UndefinedValueException(Exception):
     def __init__(self):
         super().__init__('self.value needs to be defined before converting it.')
 
+
 class ConversionException(Exception):
     def __init__(self, value, value_type):
         super().__init__("couldn't convert '{}' to {}.".format(value, value_type))
+
 
 class UnknownSettingException(Exception):
     def __init__(self, setting_path):
         self.setting_path = setting_path
         super().__init__("defined setting '{}' is unknown.".format(setting_path))
 
-class InconstentSettingTypeException(Exception):
+
+class InconsistentSettingTypeException(Exception):
     def __init__(self, setting_path, should_be, got):
         self.setting_path = setting_path
         self.should_be = should_be
@@ -55,7 +58,7 @@ class SettingsTypes(enum.Enum):
     integer = 1  # need no conversion
     boolean = 2  # need no conversion
     timedelta = 3
-    settingsitem = 4
+    settings_item = 4
 
 
 class SettingsItem:
@@ -93,8 +96,8 @@ class SettingsItem:
         # complex conversions
         elif self.value_type == SettingsTypes.timedelta:
             self.value = self.convert_to_timedelta(self.value)
-        elif self.value_type == SettingsTypes.settingsitem:
-            self.value = self.convert_to_settingsitem(self.value)
+        elif self.value_type == SettingsTypes.settings_item:
+            self.value = self.convert_to_settings_item(self.value)
         elif self.value_type == SettingsTypes.unknown:  # make a guess on what it could be
             if type(self.value) == int:
                 self.value_type = SettingsTypes.integer
@@ -102,11 +105,11 @@ class SettingsItem:
                 self.value_type = SettingsTypes.boolean
             elif type(self.value) == dict:
                 try:
-                    self.value = self.convert_to_settingsitem(self.value)
+                    self.value = self.convert_to_settings_item(self.value)
                 except ConversionException as exc:
                     raise exc
                 else:
-                    self.value_type = SettingsTypes.settingsitem
+                    self.value_type = SettingsTypes.settings_item
             elif type(self.value) == str:
                 try:
                     self.value = self.convert_to_timedelta(self.value)
@@ -124,9 +127,9 @@ class SettingsItem:
             raise ConversionException(value, SettingsTypes.timedelta) from exc
 
     @staticmethod
-    def convert_to_settingsitem(value):
+    def convert_to_settings_item(value):
         if type(value) != dict:
-            raise ConversionException(value, SettingsTypes.settingsitem)
+            raise ConversionException(value, SettingsTypes.settings_item)
         children = {}
         for name, elem in value.items():
             new_item = SettingsItem(name=name, value_type=SettingsTypes.unknown)
@@ -140,7 +143,7 @@ class SettingsItem:
         try:
             return self.__getattribute__(item)
         except AttributeError as exc:
-            if self.value_type == SettingsTypes.settingsitem and self.value is not None:
+            if self.value_type == SettingsTypes.settings_item and self.value is not None:
                 if item in self.value.keys():
                     return self.value[item]
                 else:
@@ -170,20 +173,20 @@ class Settings:
                 raise UnknownSettingException(walked_path)
             else:
                 if setting.value_type != new_tree.value_type:
-                    raise InconstentSettingTypeException(scope,
-                                                         setting.value_type, new_tree.value_type)
+                    raise InconsistentSettingTypeException(scope,
+                                                           setting.value_type, new_tree.value_type)
                 setting.value = new_tree.value
         else:
             for name in new_tree.value:
-                if new_tree.value_type == SettingsTypes.settingsitem:
+                if new_tree.value_type == SettingsTypes.settings_item:
                     self.update(new_tree.value[name], scope=scope+'.'+name)
                 else:
-                    raise TypeError("expected iterators inside new_tree to be SettingsTypes.settingitem. "
+                    raise TypeError("expected iterators inside new_tree to be SettingsTypes.settings_item. "
                                     "Got: {}".format(new_tree.value[name].value_type))
 
     @staticmethod
     def parse(json_data, name='toplevel'):
-        tree = SettingsItem(name=name, value_type=SettingsTypes.settingsitem)
+        tree = SettingsItem(name=name, value_type=SettingsTypes.settings_item)
         tree.value = json_data
         tree.convert()
         return tree

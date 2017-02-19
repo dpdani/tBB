@@ -41,7 +41,7 @@ class SettingsItemTestCase(unittest.TestCase):
             settings.SettingsItem(name='spam', value_type=int)
         with self.assertRaises(ValueError):
             settings.SettingsItem(name='42_spam', value_type=settings.SettingsTypes.string)
-        settings.SettingsItem(name='spam_42', value_type=settings.SettingsTypes.settingsitem)
+        settings.SettingsItem(name='spam_42', value_type=settings.SettingsTypes.settings_item)
 
     def test_convert(self):
         sett = settings.SettingsItem(name='spam', value_type=settings.SettingsTypes.string)
@@ -67,7 +67,7 @@ class SettingsTestCase(unittest.TestCase):
         with self.assertRaises(TypeError):
             settings.Settings({'spam': 42})
         settings.Settings(settings.SettingsItem(name='settings-toplevel',
-            value_type=settings.SettingsTypes.settingsitem))
+                                                value_type=settings.SettingsTypes.settings_item))
 
     def test_parse(self):
         parsed = settings.Settings.parse({
