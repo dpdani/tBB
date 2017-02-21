@@ -103,23 +103,19 @@ root = settings.Settings.parse({
         'handlers': {
             'console': {
                 'level': 'INFO',
-                'class': 'logging.StreamHandler',
                 'formatter': 'brief'
             },
             'syslog': {
                 'level': 'INFO',
-                'class': 'logging.handlers.SysLogHandler',
                 'formatter': 'syslog',
                 'address': {'ip': '', 'port': ''},
-                'socktype': 'ext://socket.SOCK_DGRAM',
-                'facility': 'ext://logging.handlers.SysLogHandler.LOG_DAEMON'
+                'socktype': 'DATAGRAM',
             },
             'file': {
                 'level': 'DEBUG',
-                'class': 'logging.handlers.RotatingFileHandler',
                 'formatter': 'complete',
-                'maxBytes': 10000000,
-                'backupCount': 4,
+                'max_bytes': 10000000,
+                'backup_count': 4,
                 'filename': 'tBB.log'
             },
             'enable': ['console', 'file']

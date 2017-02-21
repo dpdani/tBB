@@ -59,7 +59,7 @@ class SettingsTypes(enum.Enum):
     boolean = 2  # need no conversion
     timedelta = 3
     settings_item = 4
-    list = 5
+    list = 5  # need no conversion
 
 
 class SettingsItem:
@@ -179,8 +179,8 @@ class Settings:
                 raise UnknownSettingException(walked_path)
             else:
                 if setting.value_type != new_tree.value_type:
-                    raise InconsistentSettingTypeException(scope,
-                                                           setting.value_type, new_tree.value_type)
+                    raise InconsistentSettingTypeException(scope, setting.value_type,
+                                                           new_tree.value_type)
                 setting.value = new_tree.value
         else:
             for name in new_tree.value:

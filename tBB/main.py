@@ -22,7 +22,7 @@ and changes in the specified network.
 For further information open tBB/docs/.
 
 """
-
+import argparse
 import os
 import socket
 import sys
@@ -41,6 +41,7 @@ import tracker
 import serialization
 import frontends
 from net_elements import *
+from builtin_configuration import builtin
 
 
 loop = asyncio.get_event_loop()
@@ -51,6 +52,74 @@ original_stdout = sys.stdout.write
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+
+def configure_logging(settings):
+    # Fill in default time format
+    for formatter in settings.formatters:
+        if formatter.datefmt.value == '{default_time_format}':
+            formatter.datefmt.value = settings.default_time_format.value
+    # Create configuration dictionary compliant with logging's dictConfig
+    logging_config = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'formatters': {
+            'complete': {
+                'format': settings.formatters.complete.format.value,
+                'datefmt': settings.formatters.complete.datefmt.value,
+            },
+            'brief': {
+                'format': settings.formatters.brief.format.value,
+                'datefmt': settings.formatters.brief.datefmt.value,
+            },
+            'custom_1': {
+                'format': settings.formatters.custom_1.format.value,
+                'datefmt': settings.formatters.custom_1.datefmt.value,
+            },
+            'custom_2': {
+                'format': settings.formatters.custom_2.format.value,
+                'datefmt': settings.formatters.custom_2.datefmt.value,
+            },
+            'custom_3': {
+                'format': settings.formatters.custom_3.format.value,
+                'datefmt': settings.formatters.custom_3.datefmt.value,
+            },
+        },
+        'handlers': {
+            'console': {
+                'level': settings.handlers.console.level.value,
+                'class': logging.StreamHandler,
+                'formatter': settings.handlers.console.formatter.value,
+            },
+            'syslog': {
+                'level': settings.handlers.syslog.level.value,
+                'class': logging.handlers.SysLogHandler,
+                'formatter': settings.handlers.syslog.formatter.value,
+                'address': {'ip': settings.handlers.syslog.address.ip.value,
+                            'port': settings.handlers.syslog.address.port.value},
+                'socktype': socket.SOCK_STREAM if settings.handlers.syslog.socktype.value
+                            == 'STREAM' else socket.SOCK_DGRAM,
+                'facility': logging.handlers.SysLogHandler.LOG_DAEMON,
+            },
+            'file': {
+                'level': settings.handlers.file.level.value,
+                'class': logging.handlers.RotatingFileHandler,
+                'formatter': settings.handlers.file.formatter.value,
+                'maxBytes': settings.handlers.file.max_bytes.value,
+                'backupCount': settings.handlers.file.backup_count.value,
+                'filename': settings.handlers.file.filename.value,
+            },
+        },
+        'loggers': {
+            '': {
+                'handlers': settings.handlers.enable.value,
+                'level': settings.level.value,
+                'propagate': True
+            }
+        }
+    }
+    # Set up logging configuration
+    logging.config.dictConfig(logging_config)
 
 
 @asyncio.coroutine
@@ -77,41 +146,41 @@ def developer_cli(globals_, locals_):
     loop.stop()
 
 
-def main(args=None):
-    if args is None:
-        args = sys.argv[1:]
-    silent = False
-    if '--silent' in args:
-        silent = True
-        def write(*args, **kwargs):
-            pass
-        sys.stdout.write = write
+def main(args):
     try:
         paths.check_required_paths()
     except Exception as exc:
-        logger.exception("Couldn't create required folders for tBB. Cannot start tBB. Here's full exception.")
+        logger.exception("Couldn't create required folders for tBB. "
+                         "Cannot start tBB. Here's full exception.")
         return
-    config = read_configuration_file(
-        os.path.abspath(os.path.join(paths.configs, "config_default.json"))
-    )
-    if len(args) > 0:
-        netip = args[0]
-        try:
-            net = Network(netip)
-        except:
-            pass
-        else:
-            specific_configuration_file_path = os.path.abspath(os.path.join(
-                paths.configs, "config_{}.json".format(
-                    serialization.path_for_network(net, saving_path='', suffix='')
-                )
-            ))
-            if os.path.isfile(specific_configuration_file_path):
-                config = read_specific_configuration_file(
-                    specific_configuration_file_path,
-                    old_config=config,
-                    net=net
-                )
+    # Read builtin configuration
+    settings = builtin
+    # Update to default configuration
+    default_config_path = os.path.abspath(os.path.join(
+        paths.configs, "config_default.json"))
+    if os.path.isfile(default_config_path):
+        settings.update(
+            settings.parse(json.load(
+                default_config_path
+        )))
+    # Parse network console argument
+    try:
+        net = Network(args.network)
+    except (TypeError, ValueError):
+        print('Invalid network \'{}\'. Aborting.'.format(args.network))
+        return
+    # Update to network-specific configuration
+    specific_config_path = os.path.abspath(os.path.join(
+        paths.configs, "config_{}.json".format(
+        serialization.path_for_network(net, saving_path='', suffix='')
+    )))
+    if os.path.isfile(specific_config_path):
+        settings.update(
+            settings.parse(json.load(
+                specific_config_path
+        )))
+    # Set up logging
+    configure_logging(settings.logging)
     try:
         port = frontends.FrontendsHandler.determine_port(
             host=config['frontends_socket']['host'],
@@ -133,7 +202,6 @@ def main(args=None):
                         exc_info=True
         )
         return
-    configure_logging(config, silent, socket_port=port)
     logger.warning(" === tBB started ===  args: {}".format(args))  # warnings are usually sent to syslog
     if os.geteuid() != 0:
         logger.critical("tBB requires root privileges to be run.")
@@ -171,6 +239,11 @@ def main(args=None):
             "This console might be very dangerous if not used correctly.\n"
             "    --warn-parsing: display parsing errors.\n").format(__doc__.strip()))
         return
+    if args.silent:
+        silent = True
+        def write(*args, **kwargs):
+            pass
+        sys.stdout.write = write
     if '--debug' in args:
         logging._handlers['console'].setLevel(logging.DEBUG)
         args.remove('--debug')
@@ -319,8 +392,27 @@ def user_quit(tasks):
 
 
 if __name__ == '__main__':
+    args = argparse.ArgumentParser(prog='tBB', description=\
+'''
+tBB - The Big Brother.
+An open-source Intrusion Detection System.
+Keeps track of connections, disconnections
+and changes in the specified network.
+''')
+    args.add_argument('-s', '--silent', help='run tBB in silent mode.',
+                      action='store_true')
+    args.add_argument('-d', '--debug', help='display debug information.',
+                      action='store_true')
+    args.add_argument('-e', '--developer', help='open a developer console '
+                      '(even in silent mode). WARNING: do not allow this option '
+                      ' in a production environment.',
+                      action='store_true')
+    args.add_argument('-w', '--warn-parsing', help='display parsing errors.',
+                      action='store_true')
+    args.add_argument('network', help='network to monitor.')
+    args = args.parse_args()
     try:
-        main(sys.argv[1:])
+        main(args)
     except KeyboardInterrupt:
         logger.warning("tBB close requested by user input (Ctrl-C).")
     if loop.is_running():
