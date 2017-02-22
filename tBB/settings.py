@@ -166,9 +166,7 @@ class Settings:
         if not isinstance(new_tree, SettingsItem):
             raise TypeError("expected SettingsItem instance for argument tree. "
                             "Got: '{}'.".format(new_tree))
-        try:
-            iter(new_tree.value)
-        except TypeError:
+        if type(new_tree.value) != dict:
             walked_path = 'self.tree'
             try:
                 setting = self.tree
@@ -185,10 +183,10 @@ class Settings:
         else:
             for name in new_tree.value:
                 if new_tree.value_type == SettingsTypes.settings_item:
-                    self.update(new_tree.value[name], scope=scope+'.'+name)
+                    self.update(new_tree.value[name], scope=self.tree.name+scope+'.'+name)
                 else:
                     raise TypeError("expected iterators inside new_tree to be SettingsTypes.settings_item. "
-                                    "Got: {}".format(new_tree.value[name].value_type))
+                                    "Got: {}".format(new_tree.value_type))
 
     @staticmethod
     def parse(json_data, name='toplevel'):

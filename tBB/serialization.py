@@ -49,8 +49,8 @@ class Serializer(object):
             self.path = path_for_network(network)
         else:
             self.path = path
-        self.out_indent = config.indent
-        self.out_sort_keys = config.do_sort
+        self.out_indent = config.indent.value
+        self.out_sort_keys = config.do_sort.value
         self.track = track
         self.sessions = sessions
         self.last_save = datetime.datetime.fromtimestamp(0)

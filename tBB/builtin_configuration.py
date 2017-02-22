@@ -43,14 +43,15 @@ root = settings.Settings.parse({
                 'quit_on_first': True,
             },
         },
-        'least_record_update': '60:00',  # minimum time from which to reload monitoring
+        'least_record_update': '30:00',  # minimum time from which to reload monitoring
         'enable_notifiers': True,
         'time_between_checks': '00:02',
         'maximum_seconds_randomly_added': 2,
         'auto_ignore_broadcasts': True,
         'hosts': 16,
         'ignore': [],
-        'ignore_mac': []
+        'ignore_mac': [],
+        'ignore_name': [],
     },
     'frontends': {
         'host': 'localhost',

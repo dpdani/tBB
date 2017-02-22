@@ -207,14 +207,9 @@ def main(args):
         logging._handlers['console'].setLevel(60)  # higher than critical -> silent
     print(" === tBB - The Big Brother ===\n"
           "Started at: {}\n".format(datetime.datetime.strftime(datetime.datetime.now(),
-                                    settings.logging.default_time_format)))
+                                    settings.logging.default_time_format.value)))
     logger.info("Monitoring network {}.".format(net))
-    least_record_update_dt = datetime.datetime.strptime(
-        settings.monitoring.least_record_update, '%M:%S'
-    )
-    least_record_update_seconds = datetime.timedelta(
-        minutes=least_record_update_dt.minute,
-        seconds=least_record_update_dt.second)\
+    least_record_update_seconds = settings.monitoring.least_record_update.value\
         .total_seconds()
     loaded_from_record = False
     if os.path.exists(serialization.path_for_network(net)):
@@ -224,13 +219,13 @@ def main(args):
         track = ser.track
         loaded_from_record = True
         logger.info("Last update on record: {}.".format(sorted(ser.sessions)[-1][1].strftime(
-            settings.logging.default_time_format)))
+            settings.logging.default_time_format.value)))
     else:
         logger.info("No previous network scans found on record.")
         track = tracker.TrackersHandler(net, settings.monitoring.hosts)
         ser = serialization.Serializer(network=net, track=track, config=settings.serialization)
         track.serializer = ser
-    configure_tracker(track, config)
+    track.configure(config=settings.monitoring)
     track.warn_parsing_exception = args.warn_parsing
     with open(password_file_path, 'r') as f:
         password = f.read().strip()
@@ -246,12 +241,13 @@ def main(args):
         user_quit(tasks)
         loop.close()
         return
-    if not silent:
+    if not args.silent:
         track.force_notify = True  # do notify to screen
     do_complete_scan = True
     if loaded_from_record:
         try:
-            if (datetime.datetime.now() - sorted(ser.sessions)[-1][1]).total_seconds() < least_record_update_seconds:
+            if (datetime.datetime.now() - sorted(ser.sessions)[-1][1])\
+                    .total_seconds() < least_record_update_seconds:
                 do_complete_scan = False
         except IndexError:
             print("indexerror")

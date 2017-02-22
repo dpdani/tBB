@@ -43,9 +43,10 @@ class FrontendsHandler(object):
     def __init__(self, tracker, password, config, loop=None):
         self.tracker = tracker
         self.password = password
-        self.host = config.host
+        self.host = config.host.value
         self.port = self.determine_port(self.host,
-                                        config.port, config.maximum_port_lookup)
+                                        config.port.value,
+                                        config.maximum_port_lookup.value)
         self.app = web.Application(logger=logger)
         self.handler = None  # will be defined at start
         self.srv = None  # will be defined at start
@@ -58,7 +59,7 @@ class FrontendsHandler(object):
                 self.sslcontext.options |= ssl.OP_NO_SSLv3
                 self.sslcontext.load_cert_chain(certfile=ca_file_path,
                                                 keyfile=key_file_path)
-                self.sslcontext.check_hostname = config.ssl.check_hostname
+                self.sslcontext.check_hostname = config.ssl.check_hostname.value
             else:
                 logger.warning("Asked to use SSL, but no certificates can be found. "
                                "Running plain HTTP.")
