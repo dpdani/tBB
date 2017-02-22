@@ -56,7 +56,7 @@ logger.setLevel(logging.INFO)
 
 def configure_logging(settings):
     # Fill in default time format
-    for formatter in settings.formatters:
+    for formatter in settings.formatters.value.values():
         if formatter.datefmt.value == '{default_time_format}':
             formatter.datefmt.value = settings.default_time_format.value
     # Create configuration dictionary compliant with logging's dictConfig
@@ -71,6 +71,10 @@ def configure_logging(settings):
             'brief': {
                 'format': settings.formatters.brief.format.value,
                 'datefmt': settings.formatters.brief.datefmt.value,
+            },
+            'syslog': {
+                'format': settings.formatters.syslog.format.value,
+                'datefmt': settings.formatters.syslog.datefmt.value,
             },
             'custom_1': {
                 'format': settings.formatters.custom_1.format.value,
@@ -88,22 +92,22 @@ def configure_logging(settings):
         'handlers': {
             'console': {
                 'level': settings.handlers.console.level.value,
-                'class': logging.StreamHandler,
+                'class': 'logging.StreamHandler',
                 'formatter': settings.handlers.console.formatter.value,
             },
             'syslog': {
                 'level': settings.handlers.syslog.level.value,
-                'class': logging.handlers.SysLogHandler,
+                'class': 'logging.handlers.SysLogHandler',
                 'formatter': settings.handlers.syslog.formatter.value,
                 'address': {'ip': settings.handlers.syslog.address.ip.value,
                             'port': settings.handlers.syslog.address.port.value},
-                'socktype': socket.SOCK_STREAM if settings.handlers.syslog.socktype.value
-                            == 'STREAM' else socket.SOCK_DGRAM,
-                'facility': logging.handlers.SysLogHandler.LOG_DAEMON,
+                'socktype': 'ext://socket.SOCK_STREAM' if settings.handlers.syslog.socktype.value
+                            == 'STREAM' else 'ext://socket.SOCK_DGRAM',
+                'facility': 'logging.handlers.SysLogHandler.LOG_DAEMON',
             },
             'file': {
                 'level': settings.handlers.file.level.value,
-                'class': logging.handlers.RotatingFileHandler,
+                'class': 'logging.handlers.RotatingFileHandler',
                 'formatter': settings.handlers.file.formatter.value,
                 'maxBytes': settings.handlers.file.max_bytes.value,
                 'backupCount': settings.handlers.file.backup_count.value,
@@ -147,62 +151,13 @@ def developer_cli(globals_, locals_):
 
 
 def main(args):
+    # Check paths and permissions
     try:
         paths.check_required_paths()
     except Exception as exc:
         logger.exception("Couldn't create required folders for tBB. "
                          "Cannot start tBB. Here's full exception.")
         return
-    # Read builtin configuration
-    settings = builtin
-    # Update to default configuration
-    default_config_path = os.path.abspath(os.path.join(
-        paths.configs, "config_default.json"))
-    if os.path.isfile(default_config_path):
-        settings.update(
-            settings.parse(json.load(
-                default_config_path
-        )))
-    # Parse network console argument
-    try:
-        net = Network(args.network)
-    except (TypeError, ValueError):
-        print('Invalid network \'{}\'. Aborting.'.format(args.network))
-        return
-    # Update to network-specific configuration
-    specific_config_path = os.path.abspath(os.path.join(
-        paths.configs, "config_{}.json".format(
-        serialization.path_for_network(net, saving_path='', suffix='')
-    )))
-    if os.path.isfile(specific_config_path):
-        settings.update(
-            settings.parse(json.load(
-                specific_config_path
-        )))
-    # Set up logging
-    configure_logging(settings.logging)
-    try:
-        port = frontends.FrontendsHandler.determine_port(
-            host=config['frontends_socket']['host'],
-            starting_port=config['frontends_socket']['port'],
-            maximum_port_lookup=config['frontends_socket']['maximum_port_lookup']
-        )
-    except KeyError:
-        logger.error("Couldn't find settings for frontends configuration. Using default configuration "
-                     "(host: 'localhost', starting port: '1984', maximum port lookup: '20').", exc_info=True)
-        port = frontends.FrontendsHandler.determine_port(
-            host='localhost',
-            starting_port=1984,
-            maximum_port_lookup=20
-        )
-    except:
-        logger.critical("Couldn't find appropriate port with given configuration: host: '{}', starting port: '{}', "
-                        "maximum tries: '{}'. Got exception:".format(config['frontends_socket']['host'], config['frontends_socket']['port'],
-                                                                     config['frontends_socket']['maximum_port_lookup']),
-                        exc_info=True
-        )
-        return
-    logger.warning(" === tBB started ===  args: {}".format(args))  # warnings are usually sent to syslog
     if os.geteuid() != 0:
         logger.critical("tBB requires root privileges to be run.")
         return
@@ -214,6 +169,33 @@ def main(args):
     if password_file_mode != '600':
         logger.critical("password file has invalid permissions: {}.".format(password_file_mode))
         return
+    # Parse network console argument
+    try:
+        net = Network(args.network)
+    except (TypeError, ValueError):
+        print('Invalid network \'{}\'. Aborting.'.format(args.network))
+        return
+    # Read builtin configuration
+    settings = builtin
+    # Update to default configuration
+    default_config_path = os.path.abspath(os.path.join(
+        paths.configs, "config_default.json"))
+    if os.path.isfile(default_config_path):
+        with open(default_config_path, 'r') as f:
+            settings.update(
+                settings.parse(json.load(f)))
+    # Update to network-specific configuration
+    specific_config_path = os.path.abspath(os.path.join(
+        paths.configs, "config_{}.json".format(
+        serialization.path_for_network(net, saving_path='', suffix='')
+    )))
+    if os.path.isfile(specific_config_path):
+        with open(specific_config_path, 'r') as f:
+            settings.update(
+                settings.parse(json.load(f)))
+    # Set up logging
+    configure_logging(settings.logging)
+    logger.warning(" === tBB started ===  args: {}".format(args))  # warnings are usually sent to syslog
     try:
         del args[args.index('--silent')]
     except:
@@ -315,11 +297,10 @@ def main(args):
     track.warn_parsing_exception = warn_parsing
     with open(password_file_path, 'r') as f:
         password = f.read().strip()
-    frontends_handler = frontends.FrontendsHandler(track, password,
-                                                   host=config['frontends_socket']['host'],
-                                                   port=port, loop=loop,
-                                                   use_ssl=config['frontends_socket']['ssl'],
-                                                   do_checks=config['frontends_socket']['do_checks'])
+    frontends_handler = frontends.FrontendsHandler(track,
+                                                   password,
+                                                   config=settings.frontends,
+                                                   loop=loop)
     tasks = asyncio.async(frontends_handler.start())
     try:
         loop.run_until_complete(tasks)
