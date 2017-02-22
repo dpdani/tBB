@@ -195,106 +195,43 @@ def main(args):
                 settings.parse(json.load(f)))
     # Set up logging
     configure_logging(settings.logging)
+
     logger.warning(" === tBB started ===  args: {}".format(args))  # warnings are usually sent to syslog
-    try:
-        del args[args.index('--silent')]
-    except:
-        pass
-    if '--help' in args:
-        print((
-            "\n"
-            "{}\n"
-            "\n"
-            "Usage:\n"
-            "    tBB [OPTIONS] network: opens tBB and monitors network 'network'.\n"
-            "    tBB [OPTIONS]: opens tBB and monitors network specified in the configuration\n"
-            "                   file. If no configuration file is found or the default\n"
-            "                   network is not set, tBB will ask for a network IP in the\n"
-            "                   command prompt. Note: when launched this way, tBB won't\n"
-            "                   look for any network-specific configuration files.\n"
-            "\n"
-            "Options:\n"
-            "    --help: show this message and exit.\n"
-            "    --debug: display debug information.\n"
-            "    --silent: display nothing.\n"
-            "    --developer: open a developer console (even in silent mode). WARNING: "
-            "This console might be very dangerous if not used correctly.\n"
-            "    --warn-parsing: display parsing errors.\n").format(__doc__.strip()))
-        return
+    if args.debug:
+        logging._handlers['console'].setLevel(logging.DEBUG)
     if args.silent:
         silent = True
         def write(*args, **kwargs):
             pass
         sys.stdout.write = write
-    if '--debug' in args:
-        logging._handlers['console'].setLevel(logging.DEBUG)
-        args.remove('--debug')
-    if '--silent' in args:
-        del logging._handlers['console']
-    if '--developer' in args:
-        developer = True
-        args.remove('--developer')
-    else:
-        developer = False
-    if '--warn-parsing' in args:
-        warn_parsing = True
-        args.remove('--warn-parsing')
-    else:
-        warn_parsing = False
-    print((" === tBB - The Big Brother ===\n"
-           "Started at: {}\n").format(datetime.datetime.strftime(datetime.datetime.now(), default_time_format)))
-    # remove all option arguments before reading requested network
-    if len(args) > 0:
-        netip = args[0]
-    else:
-        try:
-            netip = config['networkIp']
-        except KeyError:  # config not found or 'networkIp' not set
-            netip = input("Please, specify a network to monitor: ")
-    try:
-        net = Network(netip)
-    except ValueError:  # invalid network input
-        print("Cannot start tBB: '{}' is not a valid network address.".format(netip))
-        logger.critical("tBB closed due to incorrect network address ({}).".format(netip))
-        return
-    try:
-        least_record_update_seconds = config['least_record_update_seconds']
-    except KeyError:
-        least_record_update_seconds = 3600
+        logging._handlers['console'].setLevel(60)  # higher than critical -> silent
+    print(" === tBB - The Big Brother ===\n"
+          "Started at: {}\n".format(datetime.datetime.strftime(datetime.datetime.now(),
+                                    settings.logging.default_time_format)))
     logger.info("Monitoring network {}.".format(net))
+    least_record_update_dt = datetime.datetime.strptime(
+        settings.monitoring.least_record_update, '%M:%S'
+    )
+    least_record_update_seconds = datetime.timedelta(
+        minutes=least_record_update_dt.minute,
+        seconds=least_record_update_dt.second)\
+        .total_seconds()
     loaded_from_record = False
-    if 'serialization' in config:
-        if 'indent' in config['serialization']:
-            indent = config['serialization']['indent']
-        if 'do_sort' in config['serialization']:
-            sort = config['serialization']['do_sort']
-    try:
-        indent
-    except NameError:
-        indent = 4
-    try:
-        sort
-    except NameError:
-        sort = True
     if os.path.exists(serialization.path_for_network(net)):
         logger.info("Found scan on record. Loading...")
-        ser = serialization.Serializer(network=net, out_indent=indent, out_sort_keys=sort)
+        ser = serialization.Serializer(network=net, config=settings.serialization)
         ser.load()
         track = ser.track
         loaded_from_record = True
-        logger.info("Last update on record: {}.".format(sorted(ser.sessions)[-1][1].strftime(default_time_format)))
+        logger.info("Last update on record: {}.".format(sorted(ser.sessions)[-1][1].strftime(
+            settings.logging.default_time_format)))
     else:
         logger.info("No previous network scans found on record.")
-        hosts = 16
-        try:
-            hosts = config['tracker']['hosts']
-        except KeyError:
-            pass
-        track = tracker.TrackersHandler(net, hosts)
-        ser = serialization.Serializer(network=net, track=track, out_indent=indent, out_sort_keys=sort)
+        track = tracker.TrackersHandler(net, settings.monitoring.hosts)
+        ser = serialization.Serializer(network=net, track=track, config=settings.serialization)
         track.serializer = ser
     configure_tracker(track, config)
-    track.warn_parsing_exception = warn_parsing
+    track.warn_parsing_exception = args.warn_parsing
     with open(password_file_path, 'r') as f:
         password = f.read().strip()
     frontends_handler = frontends.FrontendsHandler(track,
@@ -342,7 +279,7 @@ def main(args):
         track.keep_network_tracked(initial_sleep=True),
         ser.keep_saving(frequency=600)  # every 10 minutes
     ]
-    if developer:
+    if args.developer:
         tasks.append(developer_cli(globals(), locals()))
     tasks = asyncio.gather(*tasks)
     try:
