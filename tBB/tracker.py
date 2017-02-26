@@ -62,6 +62,32 @@ class Tracker(object):
         self.auto_ignore_broadcasts = True
         self.warn_parsing_exception = True
 
+    def configure(self, config):
+        self.ignore = config.ignore.value
+        self.ignore_mac = config.ignore_mac.value
+        self.ignore_name = config.ignore_name.value
+        self.auto_ignore_broadcasts = config.auto_ignore_broadcasts.value
+        self.arp = discoveries.ARPDiscovery(
+            count=config.discoveries.arp.count.value,
+            timeout=config.discoveries.arp.timeout.value,
+            quit_on_first=config.discoveries.arp.quit_on_first.value,
+        )
+        self.discoveries = [
+            discoveries.ICMPDiscovery(
+                count=config.discoveries.icmp.count.value,
+                timeout=config.discoveries.icmp.timeout.value,
+                flood=config.discoveries.icmp.flood.value,
+                enabled=config.discoveries.icmp.enable.value,
+            ),
+            discoveries.SYNDiscovery(
+                ports=config.discoveries.syn.ports.value,
+                timeout=config.discoveries.syn.timeout.value,
+                enabled=config.discoveries.syn.enable.value,
+            )
+        ]
+        self.time_between_checks = config.time_between_checks.value
+        self.maximum_seconds_randomly_added = config.maximum_seconds_randomly_added.value
+
     @property
     def up_hosts(self):
         """Number of IP hosts currently up."""
@@ -602,6 +628,10 @@ class TrackersHandler(object):
         # since broadcasts and networks ignoring is inhibited by default, manually ignore real broadcast and network
         network_and_broadcast = [self.network[0], self.network.broadcast()]
         self.ignore = network_and_broadcast
+
+    def configure(self, config):
+        for tr in self.trackers:
+            tr.configure(config)
 
     @property
     def status(self):

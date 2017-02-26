@@ -44,14 +44,13 @@ def path_for_network(network, saving_path=paths.scans, suffix='.tbbscan'):
 
 
 class Serializer(object):
-    def __init__(self, network=None, path=None, track=None, out_indent=4, out_sort_keys=True,
-                 sessions=[]):
+    def __init__(self, network=None, path=None, track=None, config=None, sessions=[]):
         if network is not None:
             self.path = path_for_network(network)
         else:
             self.path = path
-        self.out_indent = out_indent
-        self.out_sort_keys = out_sort_keys
+        self.out_indent = config.indent.value
+        self.out_sort_keys = config.do_sort.value
         self.track = track
         self.sessions = sessions
         self.last_save = datetime.datetime.fromtimestamp(0)

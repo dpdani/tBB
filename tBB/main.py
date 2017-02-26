@@ -22,7 +22,7 @@ and changes in the specified network.
 For further information open tBB/docs/.
 
 """
-
+import argparse
 import os
 import socket
 import sys
@@ -41,6 +41,7 @@ import tracker
 import serialization
 import frontends
 from net_elements import *
+from builtin_configuration import builtin
 
 
 loop = asyncio.get_event_loop()
@@ -51,193 +52,78 @@ original_stdout = sys.stdout.write
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-default_time_format = "%d/%m/%Y-%H.%M.%S"
-default_logging_config = {
-    'version': 1,
-    'disable_existing_loggers': False,
 
-    'formatters': {
-        'complete': {
-            'format': '%(levelname)s|%(name)s@%(asctime)s: %(message)s',
-            'datefmt': default_time_format,
+
+def configure_logging(settings):
+    # Fill in default time format
+    for formatter in settings.formatters.value.values():
+        if formatter.datefmt.value == '{default_time_format}':
+            formatter.datefmt.value = settings.default_time_format.value
+    # Create configuration dictionary compliant with logging's dictConfig
+    logging_config = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'formatters': {
+            'complete': {
+                'format': settings.formatters.complete.format.value,
+                'datefmt': settings.formatters.complete.datefmt.value,
+            },
+            'brief': {
+                'format': settings.formatters.brief.format.value,
+                'datefmt': settings.formatters.brief.datefmt.value,
+            },
+            'syslog': {
+                'format': settings.formatters.syslog.format.value,
+                'datefmt': settings.formatters.syslog.datefmt.value,
+            },
+            'custom_1': {
+                'format': settings.formatters.custom_1.format.value,
+                'datefmt': settings.formatters.custom_1.datefmt.value,
+            },
+            'custom_2': {
+                'format': settings.formatters.custom_2.format.value,
+                'datefmt': settings.formatters.custom_2.datefmt.value,
+            },
+            'custom_3': {
+                'format': settings.formatters.custom_3.format.value,
+                'datefmt': settings.formatters.custom_3.datefmt.value,
+            },
         },
-        'brief': {
-            'format': '%(asctime)s: %(message)s',
-            'datefmt': default_time_format,
+        'handlers': {
+            'console': {
+                'level': settings.handlers.console.level.value,
+                'class': 'logging.StreamHandler',
+                'formatter': settings.handlers.console.formatter.value,
+            },
+            'syslog': {
+                'level': settings.handlers.syslog.level.value,
+                'class': 'logging.handlers.SysLogHandler',
+                'formatter': settings.handlers.syslog.formatter.value,
+                'address': {'ip': settings.handlers.syslog.address.ip.value,
+                            'port': settings.handlers.syslog.address.port.value},
+                'socktype': 'ext://socket.SOCK_STREAM' if settings.handlers.syslog.socktype.value
+                            == 'STREAM' else 'ext://socket.SOCK_DGRAM',
+                'facility': 'logging.handlers.SysLogHandler.LOG_DAEMON',
+            },
+            'file': {
+                'level': settings.handlers.file.level.value,
+                'class': 'logging.handlers.RotatingFileHandler',
+                'formatter': settings.handlers.file.formatter.value,
+                'maxBytes': settings.handlers.file.max_bytes.value,
+                'backupCount': settings.handlers.file.backup_count.value,
+                'filename': settings.handlers.file.filename.value,
+            },
         },
-    },
-    'handlers': {
-        'console': {
-            'level': 'WARNING',
-            'class': 'logging.StreamHandler',
-            'formatter': 'brief',
-        },
-        'syslog': {
-            'level': 'WARNING',
-            'class': 'logging.handlers.SysLogHandler',
-            'formatter': 'complete',
-            'address': ("192.168.46.23", 1984),
-            'socktype': socket.SOCK_DGRAM,
-            'facility': logging.handlers.SysLogHandler.LOG_DAEMON,
-        },
-        'file': {
-            'level': 'DEBUG',
-            'class': 'logging.handlers.RotatingFileHandler',
-            'formatter': 'complete',
-            'maxBytes': 10000000,  # 10 Mb
-            'backupCount': 4,  # occupies at most 50Mb for logs
-            'filename': 'tBB.log'
-        }
-    },
-    'loggers': {
-        '': {
-            'handlers': ['console', 'file', 'syslog'],
-            'level': 'INFO',
-            'propagate': True
+        'loggers': {
+            '': {
+                'handlers': settings.handlers.enable.value,
+                'level': settings.level.value,
+                'propagate': True
+            }
         }
     }
-}
-
-
-def configure_logging(config_file, silent, socket_port):
-    if config_file:
-        if 'logging' in config_file:
-            try:
-                if silent:
-                    config_file['logging']['handlers']['console']['level'] = 60
-                try:
-                    if config_file['logging']['handlers']['syslog']['address'][1] == '{frontends_socket_port}':
-                        config_file['logging']['handlers']['syslog']['address'] = \
-                            (config_file['logging']['handlers']['syslog']['address'][0], socket_port)
-                except KeyError:
-                    logger.error("Error while reading syslog configuration. Got:", exc_info=True)
-                logging.config.dictConfig(config_file['logging'])
-            except:
-                logger.warning("Couldn't use config file for logging.", exc_info=True)
-            else:
-                return
-    logging.config.dictConfig(default_logging_config)
-
-
-def configure_tracker(track, config):
-    if config:
-        if 'tracker' in config:
-            for attr in config['tracker']:
-                if attr == "ignore":
-                    ignore_list = track.ignore
-                    for ignore in config['tracker']['ignore']:
-                        ignore_list.append(ignore)
-                    track.ignore = ignore_list
-                elif attr == "ignore_mac":
-                    ignore_list = track.ignore_mac
-                    for ignore in config['tracker']['ignore_mac']:
-                        ignore_list.append(ignore)
-                    track.ignore_mac = ignore_list
-                else:
-                    setattr(track, attr, config['tracker'][attr])
-
-
-def read_configuration_file(path):
-    config = dict()
-    if os.path.exists(path):
-        with open(path, 'r') as f:
-            read = f.read().replace('{default_time_format}', default_time_format)
-        try:
-            config = json.loads(read)
-        except (ValueError, ImportError):
-            logger.exception("Found configuration file at {}, but is malformed.".format(path, exc_info=True))
-        else:
-            logger.info("Found configuration file at {}.".format(path))
-        try:
-            config['logging']['handlers']['syslog']['address'] = \
-                (config['logging']['handlers']['syslog']['address']['ip'],
-                 config['logging']['handlers']['syslog']['address']['port'])
-        except KeyError:
-            logger.exception("Skipping syslog configuration: file malformed.")
-        try:
-            config['tracker']['time_between_checks'] = datetime.timedelta(
-                minutes=config['tracker']['time_between_checks']['minutes'],
-                seconds=config['tracker']['time_between_checks']['seconds'],
-            )
-        except KeyError:
-            logger.exception("Skipping tracker.time_between_checks configuration: file malformed.")
-        try:
-            cached = config['tracker']['discoveries']
-            config['tracker']['discoveries'] = []
-            i = 0
-            for disc in cached:
-                if disc['type'] == 'icmp':
-                    config['tracker']['discoveries'].append(
-                        tracker.discoveries.ICMPDiscovery(
-                            count=cached[i]['count'],
-                            timeout=cached[i]['timeout'],
-                            flood=cached[i]['flood'],
-                            enabled=cached[i]['enabled']
-                        )
-                    )
-                elif disc['type'] == 'syn':
-                    config['tracker']['discoveries'].append(
-                        tracker.discoveries.SYNDiscovery(
-                            ports=cached[i]['ports'],
-                            timeout=cached[i]['timeout'],
-                            enabled=cached[i]['enabled']
-                        )
-                    )
-                i += 1
-        except KeyError:
-            logger.exception("Skipping tracker.discoveries configuration: file malformed.")
-        try:
-            config['tracker']['arp'] = tracker.discoveries.ARPDiscovery(
-                count=config['tracker']['arp']['count'],
-                timeout=config['tracker']['arp']['timeout'],
-                quit_on_first=config['tracker']['arp']['quit_on_first'],
-                enabled=True
-            )
-        except KeyError:
-            logger.exception("Skipping tracker.arp configuration: file malformed.")
-        try:
-            ignore_list = []
-            for ignore in config['tracker']['ignore']:
-                ignore_list.append(IPElement(ignore))
-            config['tracker']['ignore'] = ignore_list
-        except:
-            logger.exception("Skipping tracker.ignore configuration: file malformed.")
-        try:
-            ignore_list = []
-            for ignore in config['tracker']['ignore_mac']:
-                ignore_list.append(MACElement(ignore))
-            config['tracker']['ignore_mac'] = ignore_list
-        except:
-            logger.exception("Skipping tracker.ignore_mac configuration: file malformed.")
-    return config
-
-
-def read_specific_configuration_file(path, old_config, net):
-    def update(orig_dict, new_dict):
-        if isinstance(orig_dict, datetime.timedelta):
-            return datetime.timedelta(minutes=new_dict['minutes'], seconds=new_dict['seconds'])
-        for key, val in new_dict.items():
-            if isinstance(val, collections.Mapping):
-                tmp = update(orig_dict.get(key, {}), val)
-                orig_dict[key] = tmp
-            elif isinstance(val, list):
-                orig_dict[key] = (orig_dict[key] + val)
-            else:
-                orig_dict[key] = new_dict[key]
-        return orig_dict
-
-    if os.path.exists(path):
-        with open(path, 'r') as f:
-            read = f.read().replace('{default_time_format}', default_time_format)
-        try:
-            config = json.loads(read)
-        except (ValueError, ImportError):
-            logger.exception("Found configuration file specific for '{}' at {}, but is malformed.".format(
-                net, path, exc_info=True))
-        else:
-            logger.info("Found configuration file specific for '{}' at {}.".format(net, path))
-            update(old_config, config)
-        return old_config
+    # Set up logging configuration
+    logging.config.dictConfig(logging_config)
 
 
 @asyncio.coroutine
@@ -264,64 +150,14 @@ def developer_cli(globals_, locals_):
     loop.stop()
 
 
-def main(args=None):
-    if args is None:
-        args = sys.argv[1:]
-    silent = False
-    if '--silent' in args:
-        silent = True
-        def write(*args, **kwargs):
-            pass
-        sys.stdout.write = write
+def main(args):
+    # Check paths and permissions
     try:
         paths.check_required_paths()
     except Exception as exc:
-        logger.exception("Couldn't create required folders for tBB. Cannot start tBB. Here's full exception.")
+        logger.exception("Couldn't create required folders for tBB. "
+                         "Cannot start tBB. Here's full exception.")
         return
-    config = read_configuration_file(
-        os.path.abspath(os.path.join(paths.configs, "config_default.json"))
-    )
-    if len(args) > 0:
-        netip = args[0]
-        try:
-            net = Network(netip)
-        except:
-            pass
-        else:
-            specific_configuration_file_path = os.path.abspath(os.path.join(
-                paths.configs, "config_{}.json".format(
-                    serialization.path_for_network(net, saving_path='', suffix='')
-                )
-            ))
-            if os.path.isfile(specific_configuration_file_path):
-                config = read_specific_configuration_file(
-                    specific_configuration_file_path,
-                    old_config=config,
-                    net=net
-                )
-    try:
-        port = frontends.FrontendsHandler.determine_port(
-            host=config['frontends_socket']['host'],
-            starting_port=config['frontends_socket']['port'],
-            maximum_port_lookup=config['frontends_socket']['maximum_port_lookup']
-        )
-    except KeyError:
-        logger.error("Couldn't find settings for frontends configuration. Using default configuration "
-                     "(host: 'localhost', starting port: '1984', maximum port lookup: '20').", exc_info=True)
-        port = frontends.FrontendsHandler.determine_port(
-            host='localhost',
-            starting_port=1984,
-            maximum_port_lookup=20
-        )
-    except:
-        logger.critical("Couldn't find appropriate port with given configuration: host: '{}', starting port: '{}', "
-                        "maximum tries: '{}'. Got exception:".format(config['frontends_socket']['host'], config['frontends_socket']['port'],
-                                                                     config['frontends_socket']['maximum_port_lookup']),
-                        exc_info=True
-        )
-        return
-    configure_logging(config, silent, socket_port=port)
-    logger.warning(" === tBB started ===  args: {}".format(args))  # warnings are usually sent to syslog
     if os.geteuid() != 0:
         logger.critical("tBB requires root privileges to be run.")
         return
@@ -333,107 +169,70 @@ def main(args=None):
     if password_file_mode != '600':
         logger.critical("password file has invalid permissions: {}.".format(password_file_mode))
         return
+    # Parse network console argument
     try:
-        del args[args.index('--silent')]
-    except:
-        pass
-    if '--help' in args:
-        print((
-            "\n"
-            "{}\n"
-            "\n"
-            "Usage:\n"
-            "    tBB [OPTIONS] network: opens tBB and monitors network 'network'.\n"
-            "    tBB [OPTIONS]: opens tBB and monitors network specified in the configuration\n"
-            "                   file. If no configuration file is found or the default\n"
-            "                   network is not set, tBB will ask for a network IP in the\n"
-            "                   command prompt. Note: when launched this way, tBB won't\n"
-            "                   look for any network-specific configuration files.\n"
-            "\n"
-            "Options:\n"
-            "    --help: show this message and exit.\n"
-            "    --debug: display debug information.\n"
-            "    --silent: display nothing.\n"
-            "    --developer: open a developer console (even in silent mode). WARNING: "
-            "This console might be very dangerous if not used correctly.\n"
-            "    --warn-parsing: display parsing errors.\n").format(__doc__.strip()))
+        net = Network(args.network)
+    except (TypeError, ValueError):
+        print('Invalid network \'{}\'. Aborting.'.format(args.network))
         return
-    if '--debug' in args:
+    # Read builtin configuration
+    settings = builtin
+    # Update to default configuration
+    default_config_path = os.path.abspath(os.path.join(
+        paths.configs, "config_default.json"))
+    if os.path.isfile(default_config_path):
+        with open(default_config_path, 'r') as f:
+            settings.update(
+                settings.parse(json.load(f)))
+    # Update to network-specific configuration
+    specific_config_path = os.path.abspath(os.path.join(
+        paths.configs, "config_{}.json".format(
+        serialization.path_for_network(net, saving_path='', suffix='')
+    )))
+    if os.path.isfile(specific_config_path):
+        with open(specific_config_path, 'r') as f:
+            settings.update(
+                settings.parse(json.load(f)))
+    # Set up logging
+    configure_logging(settings.logging)
+
+    logger.warning(" === tBB started ===  args: {}".format(args))  # warnings are usually sent to syslog
+    if args.debug:
         logging._handlers['console'].setLevel(logging.DEBUG)
-        args.remove('--debug')
-    if '--silent' in args:
-        del logging._handlers['console']
-    if '--developer' in args:
-        developer = True
-        args.remove('--developer')
-    else:
-        developer = False
-    if '--warn-parsing' in args:
-        warn_parsing = True
-        args.remove('--warn-parsing')
-    else:
-        warn_parsing = False
-    print((" === tBB - The Big Brother ===\n"
-           "Started at: {}\n").format(datetime.datetime.strftime(datetime.datetime.now(), default_time_format)))
-    # remove all option arguments before reading requested network
-    if len(args) > 0:
-        netip = args[0]
-    else:
-        try:
-            netip = config['networkIp']
-        except KeyError:  # config not found or 'networkIp' not set
-            netip = input("Please, specify a network to monitor: ")
-    try:
-        net = Network(netip)
-    except ValueError:  # invalid network input
-        print("Cannot start tBB: '{}' is not a valid network address.".format(netip))
-        logger.critical("tBB closed due to incorrect network address ({}).".format(netip))
-        return
-    try:
-        least_record_update_seconds = config['least_record_update_seconds']
-    except KeyError:
-        least_record_update_seconds = 3600
+    if args.silent:
+        silent = True
+        def write(*args, **kwargs):
+            pass
+        sys.stdout.write = write
+        logging._handlers['console'].setLevel(60)  # higher than critical -> silent
+    print(" === tBB - The Big Brother ===\n"
+          "Started at: {}\n".format(datetime.datetime.strftime(datetime.datetime.now(),
+                                    settings.logging.default_time_format.value)))
     logger.info("Monitoring network {}.".format(net))
+    least_record_update_seconds = settings.monitoring.least_record_update.value\
+        .total_seconds()
     loaded_from_record = False
-    if 'serialization' in config:
-        if 'indent' in config['serialization']:
-            indent = config['serialization']['indent']
-        if 'do_sort' in config['serialization']:
-            sort = config['serialization']['do_sort']
-    try:
-        indent
-    except NameError:
-        indent = 4
-    try:
-        sort
-    except NameError:
-        sort = True
     if os.path.exists(serialization.path_for_network(net)):
         logger.info("Found scan on record. Loading...")
-        ser = serialization.Serializer(network=net, out_indent=indent, out_sort_keys=sort)
+        ser = serialization.Serializer(network=net, config=settings.serialization)
         ser.load()
         track = ser.track
         loaded_from_record = True
-        logger.info("Last update on record: {}.".format(sorted(ser.sessions)[-1][1].strftime(default_time_format)))
+        logger.info("Last update on record: {}.".format(sorted(ser.sessions)[-1][1].strftime(
+            settings.logging.default_time_format.value)))
     else:
         logger.info("No previous network scans found on record.")
-        hosts = 16
-        try:
-            hosts = config['tracker']['hosts']
-        except KeyError:
-            pass
-        track = tracker.TrackersHandler(net, hosts)
-        ser = serialization.Serializer(network=net, track=track, out_indent=indent, out_sort_keys=sort)
+        track = tracker.TrackersHandler(net, settings.monitoring.hosts)
+        ser = serialization.Serializer(network=net, track=track, config=settings.serialization)
         track.serializer = ser
-    configure_tracker(track, config)
-    track.warn_parsing_exception = warn_parsing
+    track.configure(config=settings.monitoring)
+    track.warn_parsing_exception = args.warn_parsing
     with open(password_file_path, 'r') as f:
         password = f.read().strip()
-    frontends_handler = frontends.FrontendsHandler(track, password,
-                                                   host=config['frontends_socket']['host'],
-                                                   port=port, loop=loop,
-                                                   use_ssl=config['frontends_socket']['ssl'],
-                                                   do_checks=config['frontends_socket']['do_checks'])
+    frontends_handler = frontends.FrontendsHandler(track,
+                                                   password,
+                                                   config=settings.frontends,
+                                                   loop=loop)
     tasks = asyncio.async(frontends_handler.start())
     try:
         loop.run_until_complete(tasks)
@@ -442,12 +241,13 @@ def main(args=None):
         user_quit(tasks)
         loop.close()
         return
-    if not silent:
+    if not args.silent:
         track.force_notify = True  # do notify to screen
     do_complete_scan = True
     if loaded_from_record:
         try:
-            if (datetime.datetime.now() - sorted(ser.sessions)[-1][1]).total_seconds() < least_record_update_seconds:
+            if (datetime.datetime.now() - sorted(ser.sessions)[-1][1])\
+                    .total_seconds() < least_record_update_seconds:
                 do_complete_scan = False
         except IndexError:
             print("indexerror")
@@ -475,7 +275,7 @@ def main(args=None):
         track.keep_network_tracked(initial_sleep=True),
         ser.keep_saving(frequency=600)  # every 10 minutes
     ]
-    if developer:
+    if args.developer:
         tasks.append(developer_cli(globals(), locals()))
     tasks = asyncio.gather(*tasks)
     try:
@@ -506,8 +306,27 @@ def user_quit(tasks):
 
 
 if __name__ == '__main__':
+    args = argparse.ArgumentParser(prog='tBB', description=\
+'''
+tBB - The Big Brother.
+An open-source Intrusion Detection System.
+Keeps track of connections, disconnections
+and changes in the specified network.
+''')
+    args.add_argument('-s', '--silent', help='run tBB in silent mode.',
+                      action='store_true')
+    args.add_argument('-d', '--debug', help='display debug information.',
+                      action='store_true')
+    args.add_argument('-e', '--developer', help='open a developer console '
+                      '(even in silent mode). WARNING: do not allow this option '
+                      ' in a production environment.',
+                      action='store_true')
+    args.add_argument('-w', '--warn-parsing', help='display parsing errors.',
+                      action='store_true')
+    args.add_argument('network', help='network to monitor.')
+    args = args.parse_args()
     try:
-        main(sys.argv[1:])
+        main(args)
     except KeyboardInterrupt:
         logger.warning("tBB close requested by user input (Ctrl-C).")
     if loop.is_running():

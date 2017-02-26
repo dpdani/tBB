@@ -40,15 +40,17 @@ logger.setLevel(logging.DEBUG)
 
 
 class FrontendsHandler(object):
-    def __init__(self, tracker, password, host='localhost', port=1984, use_ssl=True, loop=None, do_checks=True):
+    def __init__(self, tracker, password, config, loop=None):
         self.tracker = tracker
         self.password = password
-        self.port = port
-        self.host = host
+        self.host = config.host.value
+        self.port = self.determine_port(self.host,
+                                        config.port.value,
+                                        config.maximum_port_lookup.value)
         self.app = web.Application(logger=logger)
         self.handler = None  # will be defined at start
         self.srv = None  # will be defined at start
-        if use_ssl:
+        if config.ssl.enable:
             ca_file_path = os.path.join(paths.certs, "cert.pem")
             key_file_path = os.path.join(paths.certs, "key.pem")
             if os.path.isfile(ca_file_path) and os.path.isfile(key_file_path):
@@ -57,9 +59,10 @@ class FrontendsHandler(object):
                 self.sslcontext.options |= ssl.OP_NO_SSLv3
                 self.sslcontext.load_cert_chain(certfile=ca_file_path,
                                                 keyfile=key_file_path)
-                self.sslcontext.check_hostname = do_checks
+                self.sslcontext.check_hostname = config.ssl.check_hostname.value
             else:
-                logger.warning("Asked to use SSL, but no certificates can be found. Running plain HTTP.")
+                logger.warning("Asked to use SSL, but no certificates can be found. "
+                               "Running plain HTTP.")
         if loop is None:
             self.loop = asyncio.get_event_loop()
         else:
