@@ -53,6 +53,32 @@ root = settings.Settings.parse({
         'ignore_mac': [],
         'ignore_name': [],
     },
+    'behaviors': {
+        'static_up': {
+            'start': '',
+            'end': '',
+            'include': [],
+            'exclude': [],
+        },
+        'static_down': {
+            'start': '',
+            'end': '',
+            'include': [],
+            'exclude': [],
+        },
+        'static_power_saving': {
+            'start': '',
+            'end': '',
+            'include': [],
+            'exclude': [],
+        },
+        'dhcp_assigned': {
+            'start': '',
+            'end': '',
+            'include': [],
+            'exclude': [],
+        },
+    },
     'frontends': {
         'host': 'localhost',
         'port': 1984,
