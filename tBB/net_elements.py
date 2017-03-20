@@ -181,10 +181,13 @@ class IPElement(object):
             try:
                 other = self.__class__(other)
             except (TypeError, ValueError):
-                return False
+                pass
         if not isinstance(other, self.__class__):
             raise TypeError("unorderable types: {} < {}.".format(self, other))
         return self.as_int() < other.as_int()
+
+    def __le__(self, other):
+        return self < other or self == other
 
     def __hash__(self):
         return self.ip[0].__hash__()
