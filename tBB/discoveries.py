@@ -329,3 +329,16 @@ class HostNameDiscovery(DiscoveryMethod):
         # TODO: network congestion check
         logger.debug("Host name of IP '{}' resulted '{}'.".format(ip, filtered_result))
         return True, tuple(sorted(filtered_result))
+
+class NMAPDiscovery(DiscoveryMethod):
+    def __init__(self):
+        super().__init__('nmap', enabled=True)
+
+    def _run(self, ip):
+        try:
+            result = yield from shell("nmap -A -sV {}".format(
+                ip.ip[0],
+            ))
+        except KeyboardInterrupt:
+            return False
+        return result
