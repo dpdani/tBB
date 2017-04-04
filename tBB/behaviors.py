@@ -89,6 +89,12 @@ class Dispatcher:
 
 
 class BaseBehavior:
+    readable_name = '<abstract behavior>'
+    def __init__(self, ip_hosts, mac_hosts, name_hosts):
+        self.ip_hosts = ip_hosts
+        self.mac_hosts = mac_hosts
+        self.name_hosts = name_hosts
+
     def check_change(self, ip, ip_host, mac_host, name_host):
         """
         Check if the given ip host is behaving as expected.
@@ -99,3 +105,71 @@ class BaseBehavior:
         """
         raise NotImplementedError('this method needs to be overridden by a '
                                   'non-abstract behavior.')
+
+    def notify(self, ip, reason):
+        return '''tBB detected an unexpected behavior for IP {}
+{}
+Expected behavior is: {}.'''.format(ip.as_string(), reason, self.readable_name)
+
+    def inspect_and_notify(self, ip):
+        return '''Attached to this message you'll find further inspections on host {}.\
+'''.format(ip.as_string())
+    # TODO: attach NMAP inspection
+
+
+class StaticUpBehavior(BaseBehavior):
+    readable_name = 'statically up'
+    def check_change(self, ip, ip_host, mac_host, name_host):
+        if ip_host.is_up:
+            # expected behavior
+            return
+        else:
+            self.notify(ip, 'Host unexpectedly went up.')
+
+
+class StaticDownBehavior(BaseBehavior):
+    readable_name = 'statically down'
+    def check_change(self, ip, ip_host, mac_host, name_host):
+        if not ip_host.is_up:
+            # expected behavior
+            return
+        else:
+            self.notify(ip, 'Host unexpectedly went up.')
+            self.inspect_and_notify(ip)
+
+
+class StaticPowerSavingBehavior(BaseBehavior):
+    readable_name = 'static ip with power saving'
+    def check_change(self, ip, ip_host, mac_host, name_host):
+        if ip_host.is_up:
+            # expected behavior
+            return
+        else:
+            if max(ip_host.mac_history.keys()) > ip_host.last_check:
+                # mac didn't change in this change iteration
+                # expected behavior
+                return
+            else:
+                self.notify(ip, 'Host unexpectedly changed MAC address.')
+                self.inspect_and_notify(ip)
+
+
+class DHCPAssignedBehavior(BaseBehavior):
+    readable_name = 'DHCP-assigned with power saving'
+    def check_change(self, ip, ip_host, mac_host, name_host):
+        if not ip_host.is_up:
+            # expected behavior
+            return
+        else:
+            if max(ip_host.mac_history.keys()) > ip_host.last_check:
+                # mac didn't change in this change iteration
+                # expected behavior
+                return
+            else:
+                if ip_host.mac in self.mac_hosts:
+                    # DHCP reassignment
+                    # expected behavior
+                    return
+                else:
+                    self.notify(ip, 'Host unexpectedly joined the network.')
+                    self.inspect_and_notify(ip)
