@@ -16,12 +16,7 @@
 
 """
 
-tBB - The Big Brother.
-
-An open-source Intrusion Detection System written in Python: keeps track of
-connections, disconnections and changes in the specified network.
-
-For further information open ``tBB/docs/``.
+tBB main entry point.
 
 """
 import argparse

@@ -32,6 +32,14 @@ certs = None
 
 
 def update_paths():
+    """
+    Updates the following global variables to paths:
+        - ``executable``
+        - ``root``
+        - ``configs``
+        - ``scans``
+        - ``certs``
+    """
     global root, executable, configs, scans, certs
 
     executable = os.path.dirname(os.path.abspath(__file__))

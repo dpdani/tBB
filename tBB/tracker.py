@@ -110,7 +110,7 @@ class Tracker(object):
 
     @property
     def up_mac_hosts(self):
-        """ ``MACHost``s currently up. Result is a dictionary ``{MACElement: MACHost}``.
+        """``MACHost``s currently up. Result is a dictionary ``{MACElement: MACHost}`` .
         Determining how a MACHost is up is a little bit different
         from an IPHost. Since a MACHost doesn't hold any up state,
         a MACHost is considered up when any of the IPHosts related
