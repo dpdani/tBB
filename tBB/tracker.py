@@ -201,11 +201,13 @@ class Tracker(object):
         Similarly to Track.do_complete_network_scan, this
         does not use self.highest_priority_host internally;
         iterates over self.network instead.
+
         :param start: integer to add to self.network to get first ip to scan.
         :type start: int
         :param hosts: number of ips to scan.
         :type hosts: int
-        :return:
+        :return: number of up hosts
+        :rtype: int
         """
         if type(start) != int or type(hosts) != int:
             raise TypeError("expected argument start and end to be of type int. Got: {} and {}.".format(
@@ -248,9 +250,10 @@ class Tracker(object):
         won't be tracked as the discovery method used when executed
         for this purpose.
         Returns whether or not the host was found to be up.
+
         :param ip: ip to scan.
         :type ip: IPElement()
-        :return: bool
+        :rtype: bool
         """
         if not isinstance(ip, IPElement):
             raise TypeError("expected argument ip to be an IPElement instance. Got: {}.".format(ip))
@@ -386,7 +389,8 @@ class Tracker(object):
         self.priorities should consider that if, for instance,
         the priority for host A is set to 10, every call within 10
         seconds since last scan will return host A.
-        :return type: IPElement
+
+        :rtype: IPElement
         """
         self.status = 'calculating highest priority host.'
         priorities = {}  # priority: IP
@@ -437,11 +441,11 @@ class Tracker(object):
         in the returned dict there will be no objects
         as defined in net_elements. Instead they will
         be converted into builtin types as follows:
-          - IPElement("192.168.0.0/24") -> "192.168.0.0"  # str
-          - MACElement("a0:ff:e4:bc:66:70") -> "a0:ff:e4:bc:66:70"  # str
-          - datetime() -> datetime().timestamp()  # float
+          - `IPElement("192.168.0.0/24") -> "192.168.0.0"  # str`
+          - `MACElement("a0:ff:e4:bc:66:70") -> "a0:ff:e4:bc:66:70"  # str`
+          - `datetime() -> datetime().timestamp()  # float`
         The returned dict will be in the following form:
-        {
+        ```{
             IPElement("...") : {
                 'discovery_history': {
                     datetime(...): 'icmp',  # or 'syn'
@@ -470,12 +474,13 @@ class Tracker(object):
                 ...
             },
             ...
-        }
+        }```
         Since this function may do some heavy calculations
         and therefore block, it had been designed to be a
         coroutine, in order to prevent blocking.
         For filtering results to IPHosts only or MACHosts
         only, see Tracker.ip_changes and Tracker.mac_changes.
+
         :param hosts: IPHost,MACHost[]
         :param from_: datetime.datetime
         :param to: datetime.datetime
