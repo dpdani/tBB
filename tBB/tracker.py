@@ -101,7 +101,7 @@ class Tracker(object):
     def up_ip_hosts(self):
         """IPHosts currently up. Result is a dictionary ``{IPElement: IPHost}``.
 
-        :rtype: dict[IPElement: IPHost]"""
+        :rtype: dict[IPElement, IPHost]"""
         up_ip_hosts = {}
         for host in self.ip_hosts:
             if self.ip_hosts[host].is_up:
@@ -110,7 +110,7 @@ class Tracker(object):
 
     @property
     def up_mac_hosts(self):
-        """``MACHost``s currently up. Result is a dictionary ``{MACElement: MACHost}``.
+        """ ``MACHost``s currently up. Result is a dictionary ``{MACElement: MACHost}``.
         Determining how a MACHost is up is a little bit different
         from an IPHost. Since a MACHost doesn't hold any up state,
         a MACHost is considered up when any of the IPHosts related
@@ -603,9 +603,9 @@ class TrackersHandler(object):
     a subclass of ``Tracker``, though.
     In most cases ``Tracker``'s attributes are mapped to
     properties in order to provide the attributes of all
-    ``Tracker``s this object is currently handling.
+    ``Tracker`` s this object is currently handling.
     Usually, setting one of these properties reflects
-    the change to all ``Tracker``s objects currently handled.
+    the change to all ``Tracker`` s objects currently handled.
     """
 
     def __init__(self, network, hosts=16):
