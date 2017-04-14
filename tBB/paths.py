@@ -45,10 +45,10 @@ def check_required_paths():
     """
     This function checks for paths to be present on the filesystem.
     It checks for:
-        ~/.tBB/
-        ~/.tBB/scans/
-        ~/.tBB/certs/
-        ~/.tBB/configs/
+        - ~/.tBB/
+        - ~/.tBB/scans/
+        - ~/.tBB/certs/
+        - ~/.tBB/configs/
     """
     for pth in (root, scans, certs, configs):
         if not os.path.exists(pth):
