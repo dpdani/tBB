@@ -99,7 +99,9 @@ class Tracker(object):
 
     @property
     def up_ip_hosts(self):
-        """IPHosts currently up. Result is a dictionary {IPElement: IPHost}."""
+        """IPHosts currently up. Result is a dictionary ``{IPElement: IPHost}``.
+
+        :rtype: dict[IPElement: IPHost]"""
         up_ip_hosts = {}
         for host in self.ip_hosts:
             if self.ip_hosts[host].is_up:
@@ -108,13 +110,15 @@ class Tracker(object):
 
     @property
     def up_mac_hosts(self):
-        """MACHosts currently up. Result is a dictionary {MACElement: MACHost}.
+        """``MACHost``s currently up. Result is a dictionary ``{MACElement: MACHost}``.
         Determining how a MACHost is up is a little bit different
         from an IPHost. Since a MACHost doesn't hold any up state,
         a MACHost is considered up when any of the IPHosts related
-        to it (found in MACHost.ip) is up. Therefore even if only
+        to it (found in ``MACHost.ip``) is up. Therefore even if only
         one of the (possibly) many IPHosts is up, the MACHost is
-        considered up."""
+        considered up.
+
+        :rtype: dict[MACElement: MACHost]"""
         up_mac_hosts = {}
         for host in self.mac_hosts.values():
             for ip in host.ip:
@@ -127,7 +131,7 @@ class Tracker(object):
 
     @property
     def up_name_hosts(self):
-        """Similar to Tracker.up_mac_hosts."""
+        """Similar to ``Tracker.up_mac_hosts``."""
         up_name_hosts = {}
         for host in self.name_hosts.values():
             for ip in host.ip:
@@ -145,7 +149,8 @@ class Tracker(object):
 
     @status.setter
     def status(self, value):
-        """Used to supply information to front-ends. Setting will trigger logging (DEBUG)."""
+        """Used to supply information to front-ends.
+        Setting will trigger logging (at ``DEBUG`` level)."""
         self._status = value
         logger.debug(self._status)
         # tell front-ends about update here
@@ -157,7 +162,8 @@ class Tracker(object):
 
     @outer_status.setter
     def outer_status(self, value):
-        """Used to supply information to front-ends. Setting will trigger logging (DEBUG)."""
+        """Used to supply information to front-ends.
+        Setting will trigger logging (at ``DEBUG`` level)."""
         self._outer_status = value
         logger.debug(self._outer_status)
         # tell front-ends about update here
@@ -343,8 +349,8 @@ class Tracker(object):
 
     @coroutine
     def keep_network_tracked(self, initial_sleep=0):
-        """|Keeps the given network (``self.network``) tracked.
-        |Differently from ``Tracker.do_complete_network_scan`` and
+        """Keeps the given network (``self.network``) tracked.
+        Differently from ``Tracker.do_complete_network_scan`` and
         ``Tracker.do_partial_scan``, this function doesn't iterate
         over ``self.network`` to keep it tracked. Instead it calls
         ``self.highest_priority_host`` each time it has to scan a
@@ -356,7 +362,7 @@ class Tracker(object):
         can be set using ``Track.time_between_scans`` and ``Track.\
         maximum_seconds_randomly_added``, calculated as follows::
 
-            ``sleep = time_between_scans + randint(0, maximum_seconds_randomly_added)``
+            sleep = time_between_scans + randint(0, maximum_seconds_randomly_added)
 
         randint being the ``random.randint`` function included in
         the Python's standard library.
