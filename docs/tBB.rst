@@ -1,8 +1,8 @@
-tBB package
-===========
+Full tBB reference
+==================
 
-Submodules
-----------
+This section of tBB documentation is dedicated to documenting the internals of tBB.
+
 
 tBB.async_stdio module
 ----------------------

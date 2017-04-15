@@ -21,3 +21,17 @@ Contents:
    tBB
    AWS
    future
+
+
+Installation
+------------
+
+To install tBB, fetch the latest version from GitHub::
+
+    $ git clone https://github.com/dpdani/tBB.git
+    $ cd tBB
+
+Install the required dependencies::
+
+    $ sudo python3 -m pip install -r requirements.txt
+    $ sudo apt install nmap iputils-arping
