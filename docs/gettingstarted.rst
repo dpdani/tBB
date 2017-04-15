@@ -1,7 +1,7 @@
 Getting Started
 ===============
 
-Go through these !!! number here !!! simple steps to install and configure tBB.
+Go through these 4 simple steps to install and configure tBB.
 
 Up to this moment the only tested OS for tBB is Ubuntu, nevertheless you should
 be able to run tBB in many other POSIX environments.
@@ -23,7 +23,7 @@ tBB requires Python 3 to run. Check that it is installed before proceeding::
     sudo apt install python3
     python3
 
-If a shell like this ``>>> `` pops up, Python had been correctly installed.
+If a shell like this `` >>> `` pops up, Python had been correctly installed.
 Close the shell and proceed with the installation.
 
 
