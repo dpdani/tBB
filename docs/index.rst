@@ -22,9 +22,3 @@ Contents:
    tBB
    AWS
    future
-
-
-Installation
-------------
-
-Look at the :ref:`gettingstarted` page.
