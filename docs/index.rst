@@ -11,15 +11,15 @@ in the network it monitors.
 
 
 Contents:
----------
+
 .. toctree::
    :maxdepth: 2
 
+   gettingstarted
    networking
    network_security
    ids
    tBB
-   gettingstarted
    AWS
    future
 
