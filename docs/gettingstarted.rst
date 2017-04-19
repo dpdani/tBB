@@ -11,8 +11,8 @@ be able to run tBB in many other POSIX environments.
 ------------------------------
 
 Before starting at all you should consider that tBB installation *and execution*
-require root privileges. If you're not able to supply such privileges for your
-environment, please contact your system administrator.
+require root privileges.
+If you're not able to supply such privileges for your environment, please contact your system administrator.
 
 
 1. Check Python is installed
@@ -23,7 +23,7 @@ tBB requires Python 3 to run. Check that it is installed before proceeding::
     sudo apt install python3
     python3
 
-If a shell like this `` >>> `` pops up, Python had been correctly installed.
+If a shell like this ``>>>`` pops up, Python had been correctly installed.
 Close the shell and proceed with the installation.
 
 
@@ -55,3 +55,7 @@ Front-ends will ask for this password when you connect to a running tBB server::
     sudo chmod 600 tBB_access_password
 
 You're done!
+
+Uh oh!
+------
+Did something go wrong? You might find the answer to your questions in this section, if not, feel free to open an issue `on GitHub <https://github.com/dpdani/tBB>`_.
