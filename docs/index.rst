@@ -16,6 +16,7 @@ Contents:
    :maxdepth: 2
 
    gettingstarted
+   config
    networking
    network_security
    ids
