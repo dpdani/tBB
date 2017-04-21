@@ -112,5 +112,69 @@ Field name                          Description                                 
 ``ignore_name``                     List of host names to ignore.                  ``['donald.duck']``        ``[]``
 ==================================  =============================================  =========================  =============
 
+
+**monitoring → discoveries**
+
+==================================  =============================================  =========================  =============
+Field name                          Description                                    Example values             Default value
+==================================  =============================================  =========================  =============
+``arp``                             Section dedicated to the ARP discovery method  *is section, see below*     ...
+``icmp``                            Section dedicated to the ICMP discovery        *is section, see below*     ...
+                                    method
+``syn``                             Section dedicated to the SYN discovery method  *is section, see below*     ...
+==================================  =============================================  =========================  =============
+
+
+**monitoring → discoveries → arp**
+
+==================================  =============================================  =========================  =============
+Field name                          Description                                    Example values             Default value
+==================================  =============================================  =========================  =============
+``count``                           Number of ARP broadcasts to emit.              ``1``                      ``3``
+``timeout``                         Maximum amount of time in which to wait for    
+                                    a response (in seconds). Must be a positive
+                                    integer.
+                                    A higher value in this field represent a more
+                                    reliable check, but also a slower one.
+``quit_on_first``                   Stop listening for responses at first          ``false``                  ``true``
+                                    response.
+==================================  =============================================  =========================  =============
+
+
+**monitoring → discoveries → icmp**
+
+==================================  =============================================  =========================  =============
+Field name                          Description                                    Example values             Default value
+==================================  =============================================  =========================  =============
+``count``                           Number of requests to send.                    ``4``                      ``1``
+                                    If ``flood`` is enabled, it represents the
+                                    number of responses to receive before
+                                    returning.
+``timeout``                         Maximum amount of time in which to wait for    ``1``                      ``4``
+                                    a response (in seconds). Must be a positive
+                                    integer.
+                                    A higher value in this field represent a more
+                                    reliable check, but also a slower one.
+``flood``                           Enable/disable flood ping mode.                ``false``                  ``true``
+``enable``                          Enable/disable discovery method.               ``false``                  ``true``
+==================================  =============================================  =========================  =============
+
+
+**monitoring → discoveries → syn**
+
+==================================  =============================================  =========================  =============
+Field name                          Description                                    Example values             Default value
+==================================  =============================================  =========================  =============
+``ports``                           Ports to check. Must be of string type.        ``'80'``                   ``'2'``
+``timeout``                         Maximum amount of time in which to wait for    ``1``                      ``4``
+                                    a response (in seconds). Must be a positive
+                                    integer.
+                                    A higher value in this field represent a more
+                                    reliable check, but also a slower one.
+``enable``                          Enable/disable discovery method.               ``false``                  ``true``
+==================================  =============================================  =========================  =============
+
+
+
 .. [#f1] Determined by `Tracker.highest_priority_host <http://tbb.readthedocs.io/en/latest/tBB.html#tBB.tracker.Tracker.highest_priority_host>`_.
 .. [#f2] See `Tracker.keep_network_tracked <http://tbb.readthedocs.io/en/latest/tBB.html#tBB.tracker.Tracker.keep_network_tracked>`_ for further details.
