@@ -37,7 +37,7 @@ The third level is the *network-specific* configuration which is stored in ``~/.
 this configuration will only be applied if tBB is asked to monitor the ``{NETWORK}`` network.
 On network-specific filename syntax please refer to the below section.
 
-Each new level overrides the previous one.
+Each new level overrides the configurations of the previous one.
 
 
 Network-specific configuration files naming conventions.
@@ -50,8 +50,8 @@ Specific configuration files naming conventions follow the scans naming conventi
 This rigid naming conventions allow tBB to use the correct configuration file for every network
 you may want to monitor.
 
-.. example:: For instance, if you want to create a configuration file for network ``192.168.100.0/24`` you're going to
-             need to create a file named ``config_192.168.100.0\24-256.json``. 
+For instance, if you want to create a configuration file for network ``192.168.100.0/24`` you're going to
+need to create a file named ``config_192.168.100.0\24-256.json``. 
 
 .. note:: Please note the backslash ``\`` replacing the forward slash ``/`` (forward slash is invalid for
           the Unix file name conventions). Also note the given network length in the filename after the dash ``-`` sign.
