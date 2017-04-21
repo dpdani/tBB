@@ -39,6 +39,10 @@ On network-specific filename syntax please refer to the below section.
 
 Each new level overrides the configurations of the previous one.
 
+.. note:: There are many configuration files you may want to add to your 
+          tBB installation, but tBB is capable of running without any configuration
+          file, falling back to the built-in configuration.
+
 
 Network-specific configuration files naming conventions.
 --------------------------------------------------------
