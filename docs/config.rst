@@ -112,4 +112,4 @@ Field name                          Description                                 
 ==================================  =============================================  =========================  =============
 
 .. [#f1] Determined by `Tracker.highest_priority_host <http://tbb.readthedocs.io/en/latest/tBB.html#tBB.tracker.Tracker.highest_priority_host>`_.
-.. [#f2] See `here <http://tbb.readthedocs.io/en/latest/tBB.html#tBB.tracker.Tracker.keep_network_tracked>`_ for further details.
+.. [#f2] See `Tracker.keep_network_tracked <http://tbb.readthedocs.io/en/latest/tBB.html#tBB.tracker.Tracker.keep_network_tracked>`_ for further details.
