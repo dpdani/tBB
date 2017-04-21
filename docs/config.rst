@@ -89,6 +89,7 @@ Field name         Description                                    Example values
 ==================================  =============================================  =========================  =============
 Field name                          Description                                    Example values             Default value
 ==================================  =============================================  =========================  =============
+``discoveries``                     Section dedicated to the discovery methods     *is section, see below*     ...
 ``least_record_update``             Maximum amount of time for which tBB will not  ``'00:00'``                ``'30:00'``
                                     re-perform a complete scan on startup
                                     (format: ``minutes:seconds``).
