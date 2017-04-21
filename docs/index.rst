@@ -10,8 +10,6 @@ It is able of keeping track of connections, disconnections and other changes
 in the network it monitors.
 
 
-Contents:
-
 .. toctree::
    :maxdepth: 2
 
