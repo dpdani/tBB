@@ -108,7 +108,7 @@ Field name                          Description                                 
                                     into. Must be a valid network length (aka,
                                     power of 2).
 ``ignore``                          List of IPs to ignore.                         ``['192.168.100.1']``      ``[]``
-``ignore_mac``                      List of MACs to ignore.                        ``['00:00:00:00:00:00']``  ``[]``
+``ignore_mac``                      List of MACs to ignore.                        ``['00:...:00']``  ``[]``
 ``ignore_name``                     List of host names to ignore.                  ``['donald.duck']``        ``[]``
 ==================================  =============================================  =========================  =============
 
