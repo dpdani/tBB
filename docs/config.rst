@@ -210,12 +210,131 @@ Field name                          Description                                 
 ==================================  =============================================  =========================  =============
 ``indent``                          Number of spaces with which indent the scan    ``0``                      ``4``
                                     storages (`json.dump(indent) ext. docs`_).
-``do_sort``                         Enable/disable sorting of scan storages 
+``do_sort``                         Enable/disable sorting of scan storages        ``false``                  ``true``
                                     (`json.dump(sort_keys) ext. docs`_).
 ==================================  =============================================  =========================  =============
 
 
+**logging**
+
+==================================  =============================================  =========================  =============
+Field name                          Description                                    Example values             Default value
+==================================  =============================================  =========================  =============
+``default_time_format``             Default format for datetimes in log files.     ``'%d-%m-%Y %H.%M.%S'``    ``'%Y-%m-%d %H.%M.%S'``
+                                    [#f3]_
+``level``                           Minimum logging level. One of ``DEBUG``,       ``DEBUG``                  ``INFO``
+                                    ``INFO``, ``WARNING``, ``ERROR``,
+                                    ``CRITICAL``.
+``formatters``                      Section dedicated to loggers formatters.       *is section, see below*     ...
+``handlers``                        Section dedicated to loggers handlers.         *is section, see below*     ...
+==================================  =============================================  =========================  =============
+
+
+**logging → formatters**
+
+==================================  =============================================  =========================  =============
+Field name                          Description                                    Example values             Default value
+==================================  =============================================  =========================  =============
+``complete``                        Section dedicated to the complete formatter.   *is section, see below*     ...
+``brief``                           Section dedicated to the brief formatter.      *is section, see below*     ...
+``syslog``                          Section dedicated to the syslog formatter.     *is section, see below*     ...
+``custom_1``                        Section dedicated to the custom_1 formatter.   *is section, see below*     ...
+``custom_2``                        Section dedicated to the custom_2 formatter.   *is section, see below*     ...
+``custom_3``                        Section dedicated to the custom_3 formatter.   *is section, see below*     ...
+==================================  =============================================  =========================  =============
+
+
+**logging → formatters → complete/brief/syslog/custom_1/custom_2/custom_3**
+
+*All formatters share the same configuration skeleton.*
+
+==================================  =============================================  =========================  =============
+Field name                          Description                                    Example values             Default value
+==================================  =============================================  =========================  =============
+``format``                          String to format logging upon. [#f4]_           ...                        ...
+``datefmt``                         String to format datetimes upon. [#f3]_        ``'%d-%m-%Y %H.%M.%S'``    ``{default_time_format}``
+                                    Macro ``{default_time_format}`` points to 
+                                    ``logging`` → ``default_time_format``.
+==================================  =============================================  =========================  =============
+
+
+**logging → handlers**
+
+==================================  =============================================  =========================  =============
+Field name                          Description                                    Example values             Default value
+==================================  =============================================  =========================  =============
+``console``                         Section dedicated to the complete handler.     *is section, see below*     ...
+``syslog``                          Section dedicated to the syslog handler.       *is section, see below*     ...
+``file``                            Section dedicated to the file handler.         *is section, see below*     ...
+``enable``                          List of enabled logging handlers: handlers     ``[]``                     ``['console', 'file']``
+                                    found in this list will be triggered when
+                                    logging.
+==================================  =============================================  =========================  =============
+
+
+**logging → handlers → console**
+
+==================================  =============================================  =========================  =============
+Field name                          Description                                    Example values             Default value
+==================================  =============================================  =========================  =============
+``level``                           Minimum logging level for this handler. One    ``DEBUG``                  ``INFO``
+                                    of ``DEBUG``, ``INFO``, ``WARNING``,
+                                    ``ERROR``, ``CRITICAL``.
+``formatter``                       Formatter chosen for this handler, as defined  ``custom_1``               ``brief``
+                                    in ``logging`` → ``formatters``.
+==================================  =============================================  =========================  =============
+
+
+**logging → handlers → syslog**
+
+==================================  =============================================  =========================  =============
+Field name                          Description                                    Example values             Default value
+==================================  =============================================  =========================  =============
+``level``                           Minimum logging level for this handler. One    ``DEBUG``                  ``INFO``
+                                    of ``DEBUG``, ``INFO``, ``WARNING``,
+                                    ``ERROR``, ``CRITICAL``.
+``formatter``                       Formatter chosen for this handler, as defined  ``custom_2``               ``syslog``
+                                    in ``logging`` → ``formatters``.
+``address``                         Section dedicated to the syslog host address.  *is section, see below*     ...
+``socktype``                        ISO/OSI level 4 protocol chosen by the syslog  ``STREAM``                 ``DATAGRAM``
+                                    server. One of UDP: ``DATAGRAM``, TCP:
+                                    ``STREAM``.
+==================================  =============================================  =========================  =============
+
+
+**logging → handlers → syslog → address**
+
+==================================  =============================================  =========================  =============
+Field name                          Description                                    Example values             Default value
+==================================  =============================================  =========================  =============
+``ip``                              Syslog host IP.                                ``'192.168.100.20'``       ``''``
+``port``                            Syslog server port.                            ``514``                    ``''``
+==================================  =============================================  =========================  =============
+
+
+**logging → handlers → file**
+
+==================================  =============================================  =========================  =============
+Field name                          Description                                    Example values             Default value
+==================================  =============================================  =========================  =============
+``level``                           Minimum logging level for this handler. One    ``WARNING``                ``DEBUG``
+                                    of ``DEBUG``, ``INFO``, ``WARNING``,
+                                    ``ERROR``, ``CRITICAL``.
+``formatter``                       Formatter chosen for this handler, as defined  ``syslog``                 ``complete``
+                                    in ``logging`` → ``formatters``.
+``max_bytes``                       Maximum size for log file (in bytes).          ``1000``                   ``10000000`` (``10 MB``)
+``backup_count``                    Maximum number of log files (of at most        ``1``                      ``4``
+                                    ``max_bytes`` size) to keep.
+``filename``                        Log file name.                                 ``definetelynota           ``tBB.log``
+                                                                                   logfile.log``
+==================================  =============================================  =========================  =============
+
+
+
+
 .. [#f1] Determined by `Tracker.highest_priority_host <http://tbb.readthedocs.io/en/latest/tBB.html#tBB.tracker.Tracker.highest_priority_host>`_.
 .. [#f2] See `Tracker.keep_network_tracked <http://tbb.readthedocs.io/en/latest/tBB.html#tBB.tracker.Tracker.keep_network_tracked>`_ for further details.
+.. [#f3] Python logging library date format documentation https://docs.python.org/3/library/logging.html#logging.Formatter.formatTime
+.. [#f4] Python logging library log records documentation https://docs.python.org/3/library/logging.html#logrecord-attributes
 .. _json.dump(indent) ext. docs: https://docs.python.org/3/library/json.html#json.dump
 .. _json.dump(sort_keys) ext. docs: https://docs.python.org/3/library/json.html#json.dump
