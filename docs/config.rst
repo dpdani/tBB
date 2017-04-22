@@ -175,6 +175,47 @@ Field name                          Description                                 
 ==================================  =============================================  =========================  =============
 
 
+**frontends**
+
+==================================  =============================================  =========================  =============
+Field name                          Description                                    Example values             Default value
+==================================  =============================================  =========================  =============
+``host``                            IP address for the frontends socket.           ``192.168.1.10``           ``localhost``
+``port``                            Port number for the frontends socket.          ``2000``                   ``1984``
+``maximum_port_lookup``             Maximum number of times tBB will look for the  ``1``                      ``20``
+                                    next available port if the previous one is
+                                    busy.
+``ssl``                             Section dedicated to securing communications   *is section, see below*     ...
+                                    with SSL/TLS.
+==================================  =============================================  =========================  =============
+
+
+**frontends → ssl**
+
+==================================  =============================================  =========================  =============
+Field name                          Description                                    Example values             Default value
+==================================  =============================================  =========================  =============
+``enable``                          Enable/disable SSL encryption. tBB will fall   ``false``                  ``true``
+                                    back to HTTP communication.
+``check_hostname``                  Enable/disable certificate checking, must      ``true``                   ``false``
+                                    agree with frontends on this field for
+                                    correct SSL handshake.
+==================================  =============================================  =========================  =============
+
+
+**serialization**
+
+==================================  =============================================  =========================  =============
+Field name                          Description                                    Example values             Default value
+==================================  =============================================  =========================  =============
+``indent``                          Number of spaces with which indent the scan    ``0``                      ``4``
+                                    storages (`json.dump(indent) ext. docs`_).
+``do_sort``                         Enable/disable sorting of scan storages 
+                                    (`json.dump(sort_keys) ext. docs`_).
+==================================  =============================================  =========================  =============
+
 
 .. [#f1] Determined by `Tracker.highest_priority_host <http://tbb.readthedocs.io/en/latest/tBB.html#tBB.tracker.Tracker.highest_priority_host>`_.
 .. [#f2] See `Tracker.keep_network_tracked <http://tbb.readthedocs.io/en/latest/tBB.html#tBB.tracker.Tracker.keep_network_tracked>`_ for further details.
+.. _json.dump(indent) ext. docs: https://docs.python.org/3/library/json.html#json.dump
+.. _json.dump(sort_keys) ext. docs: https://docs.python.org/3/library/json.html#json.dump
