@@ -16,4 +16,4 @@ Feel free to contribute!
 
 Open an issue, a pull request or take a look at the Projects section to look at what I'm working on right now.
 
-Before contributing, please read the [Contributing Covenant Code of Conduct](https://github.com/dpdani/tBB/blob/docs/CODE_OF_CONDUCT.md).
+Before contributing, please read the [Contributor Covenant Code of Conduct](https://github.com/dpdani/tBB/blob/docs/CODE_OF_CONDUCT.md).
