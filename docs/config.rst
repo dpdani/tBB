@@ -61,6 +61,49 @@ need to create a file named ``config_192.168.100.0\24-256.json``.
           the Unix file name conventions). Also note the given network length in the filename after the dash ``-`` sign.
 
 
+
+Examples
+--------
+These examples may be applied to both a default or a network-specific configuration file.
+
+Do not sleep between checks::
+
+    {
+        "monitoring": {
+            "time_between_checks": "00:00",
+            "maximum_seconds_randomly_added": 0
+        }
+    }
+
+Change time format and enable syslog::
+
+    {
+        "logging": {
+            "default_time_format": "%m-%d-%Y, %H.%M.%S"  # <-- time format
+            "handlers": {
+                "syslog": {                   # <-- configure syslog
+                    "address": {              #
+                        "ip": "192.168.0.1",  #
+                        "port": 666           #
+                    },
+                    "socktype": "DATAGRAM"
+                },
+                "enable": ["console", "file", "syslog"]  # <-- enable logging handlers here
+        }
+    }
+
+Bind tBB server to a non-loopback interface and disable SSL::
+    
+    {
+        "frontends": {
+            "host": "192.168.100.15",
+            "ssl": {
+                "enable": false
+            }
+        }
+    }
+
+
 Configuration fields
 --------------------
 
@@ -328,48 +371,6 @@ Field name                          Description                                 
 ``filename``                        Log file name.                                 ``definetelynota           ``tBB.log``
                                                                                    logfile.log``
 ==================================  =============================================  =========================  =============
-
-
-Examples
---------
-These examples may be applied to both a default or a network-specific configuration file.
-
-Do not sleep between checks::
-
-    {
-        "monitoring": {
-            "time_between_checks": "00:00",
-            "maximum_seconds_randomly_added": 0
-        }
-    }
-
-Change time format and enable syslog::
-
-    {
-        "logging": {
-            "default_time_format": "%m-%d-%Y, %H.%M.%S"  # <-- time format
-            "handlers": {
-                "syslog": {                   # <-- configure syslog
-                    "address": {              #
-                        "ip": "192.168.0.1",  #
-                        "port": 666           #
-                    },
-                    "socktype": "DATAGRAM"
-                },
-                "enable": ["console", "file", "syslog"]  # <-- enable logging handlers here
-        }
-    }
-
-Bind tBB server to a non-loopback interface and disable SSL::
-    
-    {
-        "frontends": {
-            "host": "192.168.100.15",
-            "ssl": {
-                "enable": false
-            }
-        }
-    }
 
 
 
