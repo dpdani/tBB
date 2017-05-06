@@ -10,21 +10,14 @@ It is able of keeping track of connections, disconnections and other changes
 in the network it monitors.
 
 
-Contents:
-
 .. toctree::
    :maxdepth: 2
 
    gettingstarted
+   config
    networking
    network_security
    ids
    tBB
    AWS
    future
-
-
-Installation
-------------
-
-Look at the :ref:`gettingstarted` page.
