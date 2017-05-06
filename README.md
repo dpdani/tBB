@@ -3,12 +3,13 @@
 
 An open-source Intrusion Detection System written in Python.
 
+![screenshot](/docs/screenshot.png)
+
 ## Usage
 This repo contains the tBB server which is what performs the monitoring.
-Nevertheless, in order to actually see the results of monitoring, you want to connect to the running server.
-To do so you'll need to install one of the tBB front-ends.
-The only available front-end as of today is tBB_cli which uses command line for human interface.
-You can find further information [here](to-be-published).
+
+In order to actually see the results of monitoring, you want to connect to the running server with a front-end.
+The only available front-end as of today is [tBB_cli](https://github.com/dpdani/tBB_cli) which uses command line for human interface.
 
 ## Contributing
 
