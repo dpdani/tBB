@@ -222,7 +222,7 @@ def main(args):
             settings.logging.default_time_format.value)))
     else:
         logger.info("No previous network scans found on record.")
-        track = tracker.TrackersHandler(net, settings.monitoring.hosts)
+        track = tracker.TrackersHandler(net, settings.monitoring.hosts.value)
         ser = serialization.Serializer(network=net, track=track, config=settings.serialization)
         track.serializer = ser
     track.configure(config=settings.monitoring)
