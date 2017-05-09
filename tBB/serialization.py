@@ -54,6 +54,7 @@ class Serializer(object):
         self.track = track
         self.sessions = sessions
         self.last_save = datetime.datetime.fromtimestamp(0)
+        self.saving = False  # is this Serializer saving to file?
 
     def load(self):
         start = time.time()
@@ -138,6 +139,10 @@ class Serializer(object):
         self.last_save = datetime.datetime.now()
 
     def _save(self):
+        if self.saving:
+            logger.debug('skipping saving due to pending operation.')
+            return
+        self.saving = True
         start = time.time()
         logger.debug("Saving scan to file {}.".format(self.path))
         to_save = {
@@ -217,6 +222,7 @@ class Serializer(object):
                 to_save['NAME_HOSTS'][name_host]['history'][encoded] = encoded_ips
         with open(self.path, 'w') as f:
             json.dump(to_save, f, indent=self.out_indent, sort_keys=self.out_sort_keys)
+        self.saving = False
         self.last_save = datetime.datetime.now()
         logger.debug("Saving took {:.3f} seconds.".format(time.time() - start))
 
