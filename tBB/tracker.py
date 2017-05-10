@@ -359,6 +359,8 @@ class Tracker(object):
         yield from asyncio.sleep(initial_sleep)
         host = self.highest_priority_host()
         while True:
+            if host is None:
+                return
             try:
                 yield from self.do_single_scan(host)
             except discoveries.ParsingException as exc:
@@ -407,7 +409,10 @@ class Tracker(object):
                 priorities[
                     int(host.ago.total_seconds()) * 10 ** 12 + host._ip.as_int()
                     ] = host._ip
-        return priorities[max(priorities)]
+        if priorities:
+            return priorities[max(priorities)]
+        else:
+            return None
 
     @coroutine
     def fire_notifiers(self, ip, mac, name, method, is_up, ip_what, mac_what, name_what):
