@@ -313,7 +313,7 @@ class HostNameDiscovery(DiscoveryMethod):
             return False
         filtered_result = []
         for res in result:
-            if res.find('not found') > -1:
+            if res.find('not found') > -1 or res.find('timed out') > -1:
                 logger.debug("Host name of IP '{}' resulted 'not found'.".format(ip))
                 return False, tuple()
             try:
