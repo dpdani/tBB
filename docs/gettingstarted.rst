@@ -20,8 +20,8 @@ If you're not able to supply such privileges for your environment, please contac
 
 tBB requires Python 3 to run. Check that it is installed before proceeding::
 
-    sudo apt install python3
-    python3
+    sudo apt install python3 python3-pip
+    python3
 
 If a shell like this ``>>>`` pops up, Python had been correctly installed.
 Close the shell and proceed with the installation.
@@ -32,8 +32,8 @@ Close the shell and proceed with the installation.
 
 Fetch the latest version of tBB from GitHub::
 
-    git clone https://github.com/dpdani/tBB.git
-    cd tBB
+    git clone https://github.com/dpdani/tBB.git
+    cd tBB
 
 
 3. Download dependencies
@@ -48,13 +48,31 @@ These dependencies are required to run tBB::
 4. Set your password
 --------------------
 
+First let tBB create the folders it needs to get working::
+
+    sudo ./run 192.168.0.0/24
+    
+.. note:: The network you specify with this command is not relevant.
+ 
+Now tBB should complain that it didn't find a password file, let's go
+and create it.
+ 
 Front-ends will ask for this password when you connect to a running tBB server::
 
-    sudo nano tBB_access_password
+    cd ~/.tBB
+    sudo nano tBB_access_password
     *enter your password*
-    sudo chmod 600 tBB_access_password
+    sudo chmod 600 tBB_access_password
 
 You're done!
+------------
+
+Now you can start using tBB. Go back to the installation folder and start tBB::
+
+    sudo ./run …  # whatever networkyou mean to monitor
+
+You can also configure tBB to fit your specific needs. Please refer to the
+configuration section of this manual.
 
 Uh oh!
 ------
