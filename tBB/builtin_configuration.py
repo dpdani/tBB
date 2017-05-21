@@ -39,6 +39,7 @@ root = settings.Settings.parse({
             },
             'arp': {
                 'count': 3,
+                'interface': 'eth0',
                 'timeout': 2,
                 'quit_on_first': True,
             },

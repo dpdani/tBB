@@ -69,6 +69,7 @@ class Tracker(object):
         self.auto_ignore_broadcasts = config.auto_ignore_broadcasts.value
         self.arp = discoveries.ARPDiscovery(
             count=config.discoveries.arp.count.value,
+            interface=config.discoveries.arp.interface.value,
             timeout=config.discoveries.arp.timeout.value,
             quit_on_first=config.discoveries.arp.quit_on_first.value,
         )

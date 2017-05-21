@@ -184,9 +184,10 @@ HeavyICMPDiscovery = ICMPDiscovery(count=4, timeout=0)
 class ARPDiscovery(DiscoveryMethod):
     """ARP discovery method. Uses system's arping to perform requests."""
 
-    def __init__(self, count, timeout, quit_on_first=True, enabled=True):
+    def __init__(self, count, interface, timeout, quit_on_first=True, enabled=True):
         """
         :param count: number of arp requests to perform. Has to be >= 1.
+        :param interface: a valid interface name for this device.
         :param timeout: pings timeout. 0 -> no timeout.
         :param quit_on_first: quit on first response received.
         :type count: int
@@ -197,6 +198,7 @@ class ARPDiscovery(DiscoveryMethod):
         if count < 1:
             raise ValueError("count must be >= 1.")
         self.count = count
+        self.interface = interface
         self.timeout = timeout
         self.quit_on_first = quit_on_first
 
@@ -210,8 +212,9 @@ class ARPDiscovery(DiscoveryMethod):
         """
         start = time.time()
         try:
-            result = yield from shell("arping -I eth0 -c {} {} {} {}".format(
+            result = yield from shell("arping -I {} -c {} {} {} {}".format(
                 self.count,
+                self.interface,
                 "-f" if self.quit_on_first else "",
                 "-w {}".format(self.timeout) if self.timeout else "",
                 ip.ip[0]
@@ -243,8 +246,8 @@ class ARPDiscovery(DiscoveryMethod):
         return up != 0, host
 
 
-DefaultARPDiscovery = ARPDiscovery(count=2, timeout=1, quit_on_first=True)
-HeavyARPDiscovery = ARPDiscovery(count=4, timeout=0, quit_on_first=True)
+DefaultARPDiscovery = ARPDiscovery(count=2, interface='eth0', timeout=1, quit_on_first=True)
+HeavyARPDiscovery = ARPDiscovery(count=4, interface='eth0', timeout=0, quit_on_first=True)
 
 
 class SYNDiscovery(DiscoveryMethod):
