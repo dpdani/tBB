@@ -90,7 +90,8 @@ class ARPDiscoveryTestCase(unittest.TestCase):
         arp = discoveries.ARPDiscovery(
             count=4,
             timeout=2,
-            quit_on_first=True
+            quit_on_first=True,
+            interface='eth0'
         )
         self.assertEqual(arp.count, 4)
         self.assertEqual(arp.timeout, 2)
@@ -100,7 +101,8 @@ class ARPDiscoveryTestCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             discoveries.ARPDiscovery(
                 count=-25,
-                timeout=1
+                timeout=1,
+                interface='eth0'
             )
 
     def test_builtin_settings(self):
