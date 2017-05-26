@@ -213,8 +213,8 @@ class ARPDiscovery(DiscoveryMethod):
         start = time.time()
         try:
             result = yield from shell("arping -I {} -c {} {} {} {}".format(
-                self.count,
                 self.interface,
+                self.count,
                 "-f" if self.quit_on_first else "",
                 "-w {}".format(self.timeout) if self.timeout else "",
                 ip.ip[0]
