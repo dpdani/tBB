@@ -1,0 +1,5 @@
+#!/bin/sh
+
+# Run tBB as a daemon
+
+sudo nohup python3 tBB/main.py "$@" > /dev/null &
