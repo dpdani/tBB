@@ -74,7 +74,7 @@ Now you can start using tBB. Go back to the installation folder and start tBB::
     sudo ./run …  # whatever network you mean to monitor
 
 You can also configure tBB to fit your specific needs. Please refer to the
-configuration section of this manual.
+`configuration section <http://tbb.readthedocs.io/en/latest/config.html>`_ of this manual.
 
 Uh oh!
 ------
