@@ -18,9 +18,4 @@ in the network it monitors.
 
    gettingstarted
    config
-   networking
-   network_security
-   ids
    tBB
-   AWS
-   future
