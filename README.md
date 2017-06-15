@@ -26,6 +26,13 @@ or
 ``$ sudo ./daemon 192.168.0.0/24``
 if you wish to run the server as a daemon.
 
+
+## Configuration
+
+There are many settings you can adjust in tBB using a simple JSON format.
+Refer to the [Manual](http://tbb.readthedocs.io/en/latest/config.html) for further details.
+
+
 ## Contributing
 
 Feel free to contribute!
