@@ -37,7 +37,7 @@ def netmask_from_netlength(hosts):
 
 class IPElement(object):
     """
-    IP object representation for Python.
+    IP node object representation for Python.
     This object responds to the following interfaces:
       - addition (and subtraction)
       - equality (and inequality)
@@ -46,7 +46,8 @@ class IPElement(object):
 
     def __init__(self, *args, **kwargs):
         """
-        Possible initializations:
+        Possible initializations::
+
             IPElement('192.168.0.100/25')
             IPElement(ip='192.168.0.100', mask=25)
         """
@@ -95,6 +96,7 @@ class IPElement(object):
     def parse_ip_with_mask(string):
         """
         Parses a string and returns the network IP and mask.
+
         :return: (ip: str, mask: int)
         """
         ip = IPElement.parse_ip(string[:string.find('/')])
@@ -106,6 +108,7 @@ class IPElement(object):
     def parse_ip(string):
         """
         Parses a string and checks if it is a valid IP.
+
         :return: string, list
         """
         split = string.split('.')
@@ -124,6 +127,7 @@ class IPElement(object):
     def parse_mask(string):
         """
         Parses a string and checks if it is a valid mask.
+
         :return: int
         """
         mask = int(string)
@@ -133,7 +137,8 @@ class IPElement(object):
 
     def is_network(self):
         """
-        Returns True if self.ip is a network IP.
+        Returns ``True`` if ``self.ip`` is a network IP in accordance to ``self.mask``.
+
         :return: bool
         """
         num = ''
@@ -146,7 +151,8 @@ class IPElement(object):
 
     def is_broadcast(self):
         """
-        Returns True if self.ip is a network IP.
+        Returns ``True`` if ``self.ip`` is a broadcast IP in accordance to ``self.mask``.
+
         :return: bool
         """
         num = ''
@@ -251,7 +257,8 @@ class Network(IPElement):
     """
     def __init__(self, *args, **kwargs):
         """
-        Possible initializations:
+        Possible initializations::
+
             Network('192.168.0.0/25')
             Network(ip='192.168.0.0', mask=25)
             Network('192.168.0.0/25-10')
@@ -402,17 +409,17 @@ class IPHost(object):
         except IndexError:  # history is empty
             return None
 
-    def add_to_mac_history(self, stuff):
-        self.mac_history[self.last_check] = stuff
+    def add_to_mac_history(self, entry):
+        self.mac_history[self.last_check] = entry
 
-    def add_to_discovery_history(self, stuff):
-        self.discovery_history[self.last_check] = stuff
+    def add_to_discovery_history(self, entry):
+        self.discovery_history[self.last_check] = entry
 
-    def add_to_is_up_history(self, stuff):
-        self.is_up_history[self.last_check] = stuff
+    def add_to_is_up_history(self, entry):
+        self.is_up_history[self.last_check] = entry
 
-    def add_to_name_history(self, stuff):
-        self.name_history[self.last_check] = stuff
+    def add_to_name_history(self, entry):
+        self.name_history[self.last_check] = entry
 
     def update(self, mac, method, is_up, name):
         self.last_check = datetime.datetime.now()
@@ -487,10 +494,10 @@ class MACHost(object):
     def ago(self):
         return datetime.datetime.now() - self.last_update
 
-    def add_to_history(self, stuff):
-        if not isinstance(stuff, tuple):
-            stuff = (stuff,)
-        self.history[self.last_update] = stuff
+    def add_to_history(self, entry):
+        if not isinstance(entry, tuple):
+            entry = (entry,)
+        self.history[self.last_update] = entry
 
     def update(self, ip):
         self.last_update = datetime.datetime.now()
@@ -565,10 +572,10 @@ class NameHost(object):
     def ago(self):
         return datetime.datetime.now() - self.last_update
 
-    def add_to_history(self, stuff):
-        if not isinstance(stuff, tuple):
-            stuff = (stuff,)
-        self.history[self.last_update] = stuff
+    def add_to_history(self, entry):
+        if not isinstance(entry, tuple):
+            entry = (entry,)
+        self.history[self.last_update] = entry
 
     def update(self, ip):
         self.last_update = datetime.datetime.now()

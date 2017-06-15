@@ -1,15 +1,35 @@
-### Current status
-![Travis Status](https://travis-ci.org/dpdani/tBB.svg?branch=master)
-
 # tBB
-A network monitoring tool written in Python.
+
+[![Travis Status](https://travis-ci.org/dpdani/tBB.svg?branch=master)](https://travis-ci.org/dpdani/tBB)
+
+An open-source Intrusion Detection System written in Python.
+
+![screenshot](/docs/screenshot.png)
+
+
+## Installation
+
+Please, refer to the installation section of the [User's Manual](http://tbb.readthedocs.io/en/latest/gettingstarted.html).
+
 
 ## Usage
-This repo contains the tBB server which is what performs the monitoring.
-Nevertheless, in order to actually see the results of monitoring, you want to connect to the running server.
-To do so you'll need to install one of the tBB front-ends.
-The only available front-end as of today is tBB_cli which uses command line for humain interface.
-You can find further information [here](to-be-published).
 
-## Project state
-Currently, tBB is in an unstable state. Although no evident crashes or fatal bugs have been reported, please keep this in mind if you're planning on using it.
+This repo contains the tBB server which is what performs the monitoring.
+
+In order to actually see the results of monitoring, you want to connect to the running server with a front-end.
+The only available front-end as of today is [tBB_cli](https://github.com/dpdani/tBB_cli) which uses command line for human interface.
+
+To run the tBB server use the following command from within tBB's installation folder:
+
+``$ sudo ./run 192.168.0.0/24``
+or
+``$ sudo ./daemon 192.168.0.0/24``
+if you wish to run the server as a daemon.
+
+## Contributing
+
+Feel free to contribute!
+
+Open an issue, a pull request or take a look at the Projects section to look at what I'm working on right now.
+
+Before contributing, please read the [Contributor Covenant Code of Conduct](https://github.com/dpdani/tBB/blob/docs/CODE_OF_CONDUCT.md).

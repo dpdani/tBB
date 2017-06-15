@@ -32,6 +32,14 @@ certs = None
 
 
 def update_paths():
+    """
+    Updates the following global variables to paths:
+        - ``executable``
+        - ``root``
+        - ``configs``
+        - ``scans``
+        - ``certs``
+    """
     global root, executable, configs, scans, certs
 
     executable = os.path.dirname(os.path.abspath(__file__))
@@ -45,10 +53,10 @@ def check_required_paths():
     """
     This function checks for paths to be present on the filesystem.
     It checks for:
-        ~/.tBB/
-        ~/.tBB/scans/
-        ~/.tBB/certs/
-        ~/.tBB/configs/
+        - ~/.tBB/
+        - ~/.tBB/scans/
+        - ~/.tBB/certs/
+        - ~/.tBB/configs/
     """
     for pth in (root, scans, certs, configs):
         if not os.path.exists(pth):

@@ -15,8 +15,9 @@
 
 """
 
-tBB's builtin configuration. This is what tBB will fall back to if the user doesn't
-specify differently.
+tBB's builtin configuration.
+
+This is what tBB will fall back to if the user doesn't specify differently.
 
 """
 

@@ -17,7 +17,8 @@
 """
 
 Discovery methods implementations.
-Library asyncio.subprocess is used to implement these methods.
+
+Library ``asyncio.subprocess`` is used to implement these methods.
 
 """
 
@@ -37,11 +38,12 @@ logger.setLevel(logging.DEBUG)
 @coroutine
 def shell(command):
     """
-    Uses asyncio's subprocess internally.
+    Uses ``asyncio`` 's subprocess internally.
+
     :param command: command to execute
     :type command: str
-    :return type: list
     :return: stdout of command
+    :rtype: list
     """
     if type(command) != str:
         raise TypeError("command must be a string. Got: '{}'.".format(type(command)))
@@ -87,12 +89,13 @@ class DiscoveryMethod:
     @coroutine
     def run(self, ip):
         """
-        Wrapper for DiscoveryMethod._run.
+        Wrapper for ``DiscoveryMethod._run``.
         Does type checking.
-        If ip is a string this function will create an
-        IPElement and pass it to self._run.
+        If ``ip`` is a string this function will create an
+        IPElement and pass it to ``self._run``.
+
         :param ip: ip to run for.
-        :return: whatever is returned by self._run
+        :return: whatever is returned by ``self._run``
         """
         if not isinstance(ip, IPElement) and type(ip) != str:
             raise TypeError("expected ip to be an IPElement instance or a string.")
@@ -109,8 +112,9 @@ class DiscoveryMethod:
     def run_multiple(self, ips):
         """
         Runs discovery for many ips.
+
         :param ips: ips to run for.
-        :return: dict<ip: result>
+        :return: dict[ip, result]
         """
         results = {}
         for ip in ips:
@@ -119,7 +123,7 @@ class DiscoveryMethod:
 
 
 class ICMPDiscovery(DiscoveryMethod):
-    """ICMP discovery method. Uses system's ping to perform requests."""
+    """ICMP discovery method. Uses system's ``ping`` to perform requests."""
 
     def __init__(self, count, timeout, flood=False, enabled=True):
         """
@@ -142,7 +146,7 @@ class ICMPDiscovery(DiscoveryMethod):
         """
         :param ip: see DiscoveryMethod.run
         :return: whether the host responded to the request
-        :return type: bool
+        :rtype: bool
         """
         start = time.time()
         try:
@@ -182,7 +186,7 @@ HeavyICMPDiscovery = ICMPDiscovery(count=4, timeout=0)
 
 
 class ARPDiscovery(DiscoveryMethod):
-    """ARP discovery method. Uses system's arping to perform requests."""
+    """ARP discovery method. Uses system's ``arping`` to perform requests."""
 
     def __init__(self, count, interface, timeout, quit_on_first=True, enabled=True):
         """
@@ -208,7 +212,7 @@ class ARPDiscovery(DiscoveryMethod):
         :param ip: see DiscoveryMethod.run
         :return: whether the host responded to the
                  request and the MAC address it responded with
-        :return type: tuple(bool, str)
+        :rtype: bool, str
         """
         start = time.time()
         try:
@@ -251,7 +255,7 @@ HeavyARPDiscovery = ARPDiscovery(count=4, interface='eth0', timeout=0, quit_on_f
 
 
 class SYNDiscovery(DiscoveryMethod):
-    """SYN discovery method. Uses system's netcat to perform requests."""
+    """SYN discovery method. Uses system's ``nc`` to perform requests."""
 
     def __init__(self, ports, timeout, enabled=True):
         """
@@ -269,7 +273,7 @@ class SYNDiscovery(DiscoveryMethod):
         """
         :param ip: see DiscoveryMethod.run
         :return: whether the host responded to the request
-        :return type: bool
+        :rtype: bool
         """
         start = time.time()
         try:

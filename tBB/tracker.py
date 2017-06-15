@@ -100,7 +100,9 @@ class Tracker(object):
 
     @property
     def up_ip_hosts(self):
-        """IPHosts currently up. Result is a dictionary {IPElement: IPHost}."""
+        """IPHosts currently up. Result is a dictionary ``{IPElement: IPHost}``.
+
+        :rtype: dict[IPElement, IPHost]"""
         up_ip_hosts = {}
         for host in self.ip_hosts:
             if self.ip_hosts[host].is_up:
@@ -109,13 +111,15 @@ class Tracker(object):
 
     @property
     def up_mac_hosts(self):
-        """MACHosts currently up. Result is a dictionary {MACElement: MACHost}.
+        """``MACHost``s currently up. Result is a dictionary ``{MACElement: MACHost}`` .
         Determining how a MACHost is up is a little bit different
         from an IPHost. Since a MACHost doesn't hold any up state,
         a MACHost is considered up when any of the IPHosts related
-        to it (found in MACHost.ip) is up. Therefore even if only
+        to it (found in ``MACHost.ip``) is up. Therefore even if only
         one of the (possibly) many IPHosts is up, the MACHost is
-        considered up."""
+        considered up.
+
+        :rtype: dict[MACElement: MACHost]"""
         up_mac_hosts = {}
         for host in self.mac_hosts.values():
             for ip in host.ip:
@@ -128,7 +132,7 @@ class Tracker(object):
 
     @property
     def up_name_hosts(self):
-        """Similar to Tracker.up_mac_hosts."""
+        """Similar to ``Tracker.up_mac_hosts``."""
         up_name_hosts = {}
         for host in self.name_hosts.values():
             for ip in host.ip:
@@ -146,7 +150,8 @@ class Tracker(object):
 
     @status.setter
     def status(self, value):
-        """Used to supply information to front-ends. Setting will trigger logging (DEBUG)."""
+        """Used to supply information to front-ends.
+        Setting will trigger logging (at ``DEBUG`` level)."""
         self._status = value
         logger.debug(self._status)
         # tell front-ends about update here
@@ -158,7 +163,8 @@ class Tracker(object):
 
     @outer_status.setter
     def outer_status(self, value):
-        """Used to supply information to front-ends. Setting will trigger logging (DEBUG)."""
+        """Used to supply information to front-ends.
+        Setting will trigger logging (at ``DEBUG`` level)."""
         self._outer_status = value
         logger.debug(self._outer_status)
         # tell front-ends about update here
@@ -166,9 +172,9 @@ class Tracker(object):
     @coroutine
     def do_complete_network_scan(self):
         """Runs complete network scan.
-        Similarly to Track.do_partial_scan, this does not
-        use self.highest_priority_host internally; iterates
-        over self.network instead.
+        Similarly to ``Track.do_partial_scan``, this does not
+        use ``self.highest_priority_host`` internally; iterates
+        over ``self.network`` instead.
         """
         self.outer_status = "Scanning entire network: {}.".format(self.network)
         logger.debug(self.outer_status)
@@ -198,15 +204,17 @@ class Tracker(object):
     def do_partial_scan(self, start, hosts):
         """Runs partial scan of the network.
         Starting from argument start for so many hosts as
-        defined in argument hosts.
-        Similarly to Track.do_complete_network_scan, this
+        defined in argument ``hosts``.
+        Similarly to ``Track.do_complete_network_scan``, this
         does not use self.highest_priority_host internally;
-        iterates over self.network instead.
-        :param start: integer to add to self.network to get first ip to scan.
+        iterates over ``self.network`` instead.
+
+        :param start: integer to add to ``self.network`` to get first ip to scan.
         :type start: int
         :param hosts: number of ips to scan.
         :type hosts: int
-        :return:
+        :return: number of up hosts
+        :rtype: int
         """
         if type(start) != int or type(hosts) != int:
             raise TypeError("expected argument start and end to be of type int. Got: {} and {}.".format(
@@ -238,20 +246,22 @@ class Tracker(object):
     @coroutine
     def do_single_scan(self, ip):
         """Runs a scan to the specified ip.
-        Uses discovery methods found in self.discoveries.
+        Uses discovery methods found in ``self.discoveries``.
         You can enable/disable each one of them by setting
-        self.discoveries[x].enable to whatever suits you.
+        ``self.discoveries[x].enable`` to whatever suits you.
         This function takes care of detecting whether the host changed
-        its status and if so it calls self.fire_notifiers.
+        its status and if so it calls ``self.fire_notifiers``.
         If one discovery method results positive others won't be run.
-        Note: in order to provide the mac address of the scanning host,
-        ARP will be run even if it had been disabled, but it
-        won't be tracked as the discovery method used when executed
-        for this purpose.
         Returns whether or not the host was found to be up.
+
+        .. note:: in order to provide the mac address of the scanning host,
+                  ARP will be run even if it had been disabled, but it
+                  won't be tracked as the discovery method used when executed
+                  for this purpose.
+
         :param ip: ip to scan.
         :type ip: IPElement()
-        :return: bool
+        :rtype: bool
         """
         if not isinstance(ip, IPElement):
             raise TypeError("expected argument ip to be an IPElement instance. Got: {}.".format(ip))
@@ -340,20 +350,22 @@ class Tracker(object):
 
     @coroutine
     def keep_network_tracked(self, initial_sleep=0):
-        """Keeps the given network (self.network) tracked.
-        Differently from Tracker.do_complete_network_scan and
-        Tracker.do_partial_scan, this function doesn't iterate
-        over self.network to keep it tracked. Instead it calls
-        self.highest_priority_host each time it has to scan a
+        """Keeps the given network (``self.network``) tracked.
+        Differently from ``Tracker.do_complete_network_scan`` and
+        ``Tracker.do_partial_scan``, this function doesn't iterate
+        over ``self.network`` to keep it tracked. Instead it calls
+        ``self.highest_priority_host`` each time it has to scan a
         new host.
-        Again, differently from Tracker.do_complete_network_scan
-        and Tracker.do_partial_scan, this function implements a
+        Again, differently from ``Tracker.do_complete_network_scan``
+        and ``Tracker.do_partial_scan``, this function implements a
         sleeping mechanisms between scans in order to reduce its
         weight on the network. The time it takes for sleeping
-        can be set using Track.time_between_scans and Track.\
-        maximum_seconds_randomly_added, calculated as follows:
-          sleep = time_between_scans + randint(0, maximum_seconds_randomly_added)
-        randint being the random.randint function included in
+        can be set using ``Track.time_between_scans`` and ``Track.\
+        maximum_seconds_randomly_added``, calculated as follows::
+
+            sleep = time_between_scans + randint(0, maximum_seconds_randomly_added)
+
+        randint being the ``random.randint`` function included in
         the Python's standard library.
         """
         self.outer_status = "Keeping network tracked."
@@ -381,15 +393,18 @@ class Tracker(object):
         The calculation is made so that there can be no hosts
         with the same priority.
         It takes in account per-host set priorities in self.priorities.
-        The calculation is done as follows:
-          priority = host_priority + time_since_last_check|IP
+        The calculation is done as follows::
+
+            priority = host_priority + time_since_last_check|IP
+
         As shown, the IP added at the end prevents two hosts
         from having the same priority.
         Seen how the calculation is performed, priorities set in
         self.priorities should consider that if, for instance,
         the priority for host A is set to 10, every call within 10
         seconds since last scan will return host A.
-        :return type: IPElement
+
+        :rtype: IPElement
         """
         self.status = 'calculating highest priority host.'
         priorities = {}  # priority: IP
@@ -443,45 +458,48 @@ class Tracker(object):
         in the returned dict there will be no objects
         as defined in net_elements. Instead they will
         be converted into builtin types as follows:
-          - IPElement("192.168.0.0/24") -> "192.168.0.0"  # str
-          - MACElement("a0:ff:e4:bc:66:70") -> "a0:ff:e4:bc:66:70"  # str
-          - datetime() -> datetime().timestamp()  # float
-        The returned dict will be in the following form:
-        {
-            IPElement("...") : {
-                'discovery_history': {
-                    datetime(...): 'icmp',  # or 'syn'
+          - ``IPElement("192.168.0.0/24") -> "192.168.0.0"  # str``
+          - ``MACElement("a0:ff:e4:bc:66:70") -> "a0:ff:e4:bc:66:70"  # str``
+          - ``datetime() -> datetime().timestamp()  # float``
+        The returned dict will be in the following form::
+
+            {
+                IPElement("...") : {
+                    'discovery_history': {
+                        datetime(...): 'icmp',  # or 'syn'
+                        ...
+                    },
+                    'is_up_history': {
+                        datetime(...): True,  # or False
+                        ...
+                    },
+                    'mac_history': {
+                        datetime(...): MACElement("..."),
+                        ...
+                    }
+                },
+                MACElement("..."): {
+                    'history': {
+                        datetime(...): [IPElement("..."), ...],
+                        ...
+                    }
+                    'is_up_history': {
+                      datetime(...): True,  # or False
+                      ...
+                    }
+                }
+                IPElement("..."): {
                     ...
                 },
-                'is_up_history': {
-                    datetime(...): True,  # or False
-                    ...
-                },
-                'mac_history': {
-                    datetime(...): MACElement("..."),
-                    ...
-                }
-            },
-            MACElement("..."): {
-                'history': {
-                    datetime(...): [IPElement("..."), ...],
-                    ...
-                }
-                'is_up_history': {
-                  datetime(...): True,  # or False
-                  ...
-                }
-            }
-            IPElement("..."): {
                 ...
-            },
-            ...
-        }
+            }
+
         Since this function may do some heavy calculations
         and therefore block, it had been designed to be a
         coroutine, in order to prevent blocking.
-        For filtering results to IPHosts only or MACHosts
-        only, see Tracker.ip_changes and Tracker.mac_changes.
+        For filtering results to ``IPHosts`` only or ``MACHosts``
+        only, see ``Tracker.ip_changes`` and ``Tracker.mac_changes``.
+
         :param hosts: IPHost,MACHost[]
         :param from_: datetime.datetime
         :param to: datetime.datetime
@@ -540,7 +558,7 @@ class Tracker(object):
 
     @coroutine
     def ip_changes(self, hosts, from_, to, json_compatible=False):
-        """Similar to Tracker.changes, but only iterates over IPHosts."""
+        """Similar to ``Tracker.changes``, but only iterates over ``IPHosts``."""
         hosts_ = []
         if len(hosts) == 0:
             hosts_ = self.ip_hosts.values()
@@ -553,7 +571,7 @@ class Tracker(object):
 
     @coroutine
     def mac_changes(self, hosts, from_, to, json_compatible=False):
-        """Similar to Tracker.changes, but only iterates over MACHosts."""
+        """Similar to ``Tracker.changes``, but only iterates over ``MACHosts``."""
         hosts_ = []
         if len(hosts) == 0:
             hosts_ = self.mac_hosts.values()
@@ -566,7 +584,7 @@ class Tracker(object):
 
     @coroutine
     def name_changes(self, hosts, from_, to, json_compatible=False):
-        """Similar to Tracker.changes, but only iterates over NameHosts."""
+        """Similar to ``Tracker.changes``, but only iterates over ``NameHosts``."""
         hosts_ = []
         if len(hosts) == 0:
             hosts_ = self.name_hosts.values()
@@ -583,17 +601,17 @@ class Tracker(object):
 
 class TrackersHandler(object):
     """
-    This is capable of handling different Tracker instances
+    This is capable of handling different ``Tracker`` instances
     at the same time.
     For methods and attributes documentation you may refer
-    to Tracker's documentation, since this class mimics
+    to ``Tracker``'s documentation, since this class mimics
     most of its behaviour. Please, note that this is not
-    a subclass of Tracker, though.
-    In most cases Tracker's attributes are mapped to
+    a subclass of ``Tracker``, though.
+    In most cases ``Tracker``'s attributes are mapped to
     properties in order to provide the attributes of all
-    Trackers this object is currently handling.
+    ``Tracker`` s this object is currently handling.
     Usually, setting one of these properties reflects
-    the change to all Trackers objects currently handled.
+    the change to all ``Tracker`` s objects currently handled.
     """
 
     def __init__(self, network, hosts=16):
@@ -601,11 +619,12 @@ class TrackersHandler(object):
         This function handles splitting of the
         network into different sub-networks.
         Each sub-network's length is defined with
-        the hosts argument. It, therefore, should be
+        the ``hosts`` argument. It, therefore, should be
         a valid network length (a power of 2).
-        You can check if a value is ok for hosts argument
-        by checking it against net_elements.netmask_from_netlength.
-        Each sub-network will be passed to a Tracker
+        You can check if a value is ok for ``hosts`` argument
+        by checking it against ``net_elements.netmask_from_netlength``
+        which is internally called by this method.
+        Each sub-network will be passed to a ``Tracker``
         as its network to keep track.
         """
         self.network = network
